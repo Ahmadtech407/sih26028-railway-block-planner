@@ -1,4 +1,7 @@
 services:
+  # -------------------------------------------------------------
+  # 1. FastAPI REST & Optimizer Backend (24/7 Cloud Service)
+  # -------------------------------------------------------------
   - type: web
     name: sih26028-railway-backend
     env: python
@@ -19,3 +22,21 @@ services:
         value: RAPIDAPI_IRCTC
       - key: RAPIDAPI_HOST
         value: irctc1.p.rapidapi.com
+
+  # -------------------------------------------------------------
+  # 2. Streamlit Passenger Portal Frontend (24/7 Cloud Service)
+  # -------------------------------------------------------------
+  - type: web
+    name: sih26028-railtrack-passenger
+    env: python
+    region: oregon
+    plan: free
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run passenger_app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true
+    healthCheckPath: /_stcore/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: BACKEND_URL
+        value: https://sih26028-railway-backend.onrender.com
