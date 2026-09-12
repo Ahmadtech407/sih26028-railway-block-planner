@@ -7,7 +7,7 @@
 // 1. Configuration & State Management
 // -----------------------------------------------------------------------------
 
-const DEFAULT_API_URL = localStorage.getItem("RAILWAY_API_URL") || "https://nurse-lodge-bracelets-manufacturers.trycloudflare.com";
+const DEFAULT_API_URL = localStorage.getItem("RAILWAY_API_URL") || "https://progress-alias-volt-fur.trycloudflare.com";
 
 const STATE = {
   apiUrl: DEFAULT_API_URL,
