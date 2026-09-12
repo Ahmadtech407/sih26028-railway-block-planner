@@ -1,0 +1,77 @@
+{
+  "version": "IR-GBM-DelayPredictor-v2.0",
+  "trained_at": "2026-09-04T20:27:12.532766+00:00",
+  "training_dataset": "ir_delay_training_dataset.csv",
+  "delay_regression": {
+    "Naive Median Baseline": {
+      "MAE_minutes": 19.294,
+      "RMSE_minutes": 25.076,
+      "R2_score": -0.001
+    },
+    "Ridge Linear Regression": {
+      "MAE_minutes": 0.101,
+      "RMSE_minutes": 0.38,
+      "R2_score": 1.0
+    },
+    "Random Forest Regressor": {
+      "MAE_minutes": 0.103,
+      "RMSE_minutes": 0.267,
+      "R2_score": 1.0
+    },
+    "Gradient Boosting Regressor": {
+      "MAE_minutes": 0.116,
+      "RMSE_minutes": 0.274,
+      "R2_score": 1.0
+    },
+    "best_model": "Ridge Linear Regression"
+  },
+  "congestion_classification": {
+    "Majority Baseline": {
+      "Accuracy": 0.862,
+      "Macro_F1": 0.309,
+      "Precision": 0.287,
+      "Recall": 0.333
+    },
+    "Random Forest Classifier": {
+      "Accuracy": 0.993,
+      "Macro_F1": 0.972,
+      "Precision": 0.974,
+      "Recall": 0.971
+    },
+    "Gradient Boosting Classifier": {
+      "Accuracy": 0.991,
+      "Macro_F1": 0.954,
+      "Precision": 0.954,
+      "Recall": 0.954
+    },
+    "confusion_matrix": {
+      "labels": [
+        "LOW",
+        "MEDIUM",
+        "HIGH"
+      ],
+      "matrix": [
+        [
+          25,
+          0,
+          0
+        ],
+        [
+          2,
+          32,
+          1
+        ],
+        [
+          0,
+          0,
+          375
+        ]
+      ]
+    },
+    "best_model": "Random Forest Classifier"
+  },
+  "frameworks": {
+    "scikit-learn": "1.6.0",
+    "joblib": "1.6.0"
+  }
+}

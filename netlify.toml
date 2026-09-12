@@ -1,0 +1,23 @@
+# Netlify Configuration for Indian Railways AI Section Controller & Passenger Portal
+[build]
+  publish = "frontend"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=()"
+
+# Optional proxy rule: If your backend is deployed on Render, uncomment and replace with your Render URL
+# [[redirects]]
+#   from = "/api/*"
+#   to = "https://sih26028-railway-backend.onrender.com/api/:splat"
+#   status = 200
+#   force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

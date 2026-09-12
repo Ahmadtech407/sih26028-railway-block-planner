@@ -1,0 +1,440 @@
+"""
+Supabase Train Data Store
+=========================
+Persists live and simulated train telemetry, platform assignments, weather,
+and congestion records to Supabase. Matches the real Supabase schema:
+- trains
+- stations
+- train_routes
+- train_schedules
+- train_live_positions
+- platform_status
+- platform_changes
+- weather_data
+- congestion_data
+- ml_predictions
+"""
+
+from __future__ import annotations
+
+import logging
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
+
+# Train number to train_id lookup cache
+_TRAIN_ID_CACHE: Dict[str, int] = {}
+_STATION_ID_CACHE: Dict[str, int] = {"CNB": 1, "PRYJ": 2, "LKO": 3}
+
+
+def _get_client():
+    """Return the shared supabase client, or None if unavailable."""
+    try:
+        from backend.supa_client import supabase
+        return supabase
+    except Exception as exc:
+        logger.debug("Supabase client not available: %s", exc)
+        return None
+
+
+def get_train_id(train_number: str) -> Optional[int]:
+    """Resolve train_number to database train_id, caching the result."""
+    train_num = str(train_number).strip()
+    if train_num in _TRAIN_ID_CACHE:
+        return _TRAIN_ID_CACHE[train_num]
+
+    client = _get_client()
+    if client is None:
+        return None
+
+    try:
+        res = client.table("trains").select("id").eq("train_number", train_num).limit(1).execute()
+        if res.data and len(res.data) > 0:
+            tid = int(res.data[0]["id"])
+            _TRAIN_ID_CACHE[train_num] = tid
+            return tid
+
+        # If train not found in table, auto-insert it
+        ins = client.table("trains").insert({
+            "train_number": train_num,
+            "train_name": f"Train {train_num}",
+            "train_type": "EXPRESS",
+            "source_station_id": 1,
+            "destination_station_id": 2,
+            "active": True,
+        }).execute()
+        if ins.data and len(ins.data) > 0:
+            tid = int(ins.data[0]["id"])
+            _TRAIN_ID_CACHE[train_num] = tid
+            return tid
+    except Exception as exc:
+        logger.debug("Could not resolve train_id for %s: %s", train_number, exc)
+
+    return 1  # Fallback default ID
+
+
+def get_station_id(station_code_or_name: str) -> int:
+    """Resolve station code or name to station_id."""
+    name = str(station_code_or_name).upper()
+    if "CNB" in name or "KANPUR" in name:
+        return 1
+    if "PRYJ" in name or "PRAYAGRAJ" in name or "ALLAHABAD" in name:
+        return 2
+    if "LKO" in name or "LUCKNOW" in name:
+        return 3
+    return 1
+
+
+def store_telemetry(
+    train_number: str,
+    section_id: str,
+    position_km: float,
+    speed_kmph: float,
+    delay_minutes: int = 0,
+    congestion_level: Optional[str] = None,
+    gps_lat: Optional[float] = None,
+    gps_lon: Optional[float] = None,
+    data_source: str = "SIMULATED",
+) -> bool:
+    """
+    Insert one telemetry record into Supabase (train_live_positions).
+    Returns True on success, False on any failure.
+    """
+    client = _get_client()
+    if client is None:
+        return False
+
+    train_id = get_train_id(train_number) or 1
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    try:
+        client.table("train_live_positions").insert(
+            {
+                "train_id": train_id,
+                "latitude": gps_lat or 26.4499,
+                "longitude": gps_lon or 80.3319,
+                "speed_kmph": round(speed_kmph, 1),
+                "current_station_id": 1,
+                "next_station_id": 2,
+                "distance_to_next_station_km": round(max(0.0, 442.5 - position_km), 2),
+                "distance_travelled_km": round(position_km, 2),
+                "data_source": data_source,
+                "recorded_at": now_iso,
+            }
+        ).execute()
+
+        # If congestion data is present, also log to congestion_data
+        if congestion_level:
+            client.table("congestion_data").insert(
+                {
+                    "station_id": 1,
+                    "train_id": train_id,
+                    "congestion_level": congestion_level,
+                    "congestion_score": 10.0 if congestion_level == "LOW" else 50.0 if congestion_level == "MEDIUM" else 90.0,
+                    "trains_in_section": 1,
+                    "source": data_source,
+                    "recorded_at": now_iso,
+                }
+            ).execute()
+
+        return True
+    except Exception as exc:
+        logger.warning("store_telemetry failed: %s", exc)
+        return False
+
+
+def get_telemetry_history(
+    train_number: str,
+    limit: int = 100,
+) -> List[Dict[str, Any]]:
+    """
+    Return the most recent telemetry records for a train.
+    """
+    client = _get_client()
+    if client is None:
+        return []
+
+    train_id = get_train_id(train_number) or 1
+    try:
+        response = (
+            client.table("train_live_positions")
+            .select("*")
+            .eq("train_id", train_id)
+            .order("recorded_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return response.data or []
+    except Exception as exc:
+        logger.warning("get_telemetry_history failed: %s", exc)
+        return []
+
+
+def store_platform_assignment(
+    train_number: str,
+    section_id: str,
+    platform_number: Optional[int],
+    station_code: str = "CNB",
+    source: str = "TMS",
+) -> bool:
+    """
+    Record a platform assignment event in platform_status and platform_changes.
+    """
+    client = _get_client()
+    if client is None:
+        return False
+
+    train_id = get_train_id(train_number) or 1
+    station_id = get_station_id(station_code)
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    try:
+        # Check current platform
+        prev_plat = None
+        curr_res = (
+            client.table("platform_status")
+            .select("platform_number")
+            .eq("train_id", train_id)
+            .eq("station_id", station_id)
+            .limit(1)
+            .execute()
+        )
+        if curr_res.data and len(curr_res.data) > 0:
+            prev_plat = curr_res.data[0].get("platform_number")
+            try:
+                prev_plat = int(prev_plat) if prev_plat is not None else None
+            except Exception:
+                pass
+
+        # Update or insert platform status
+        client.table("platform_status").insert(
+            {
+                "train_id": train_id,
+                "station_id": station_id,
+                "platform_number": str(platform_number) if platform_number is not None else None,
+                "status": "ASSIGNED" if platform_number else "UNASSIGNED",
+                "source": source,
+                "updated_at": now_iso,
+            }
+        ).execute()
+
+        # If platform changed, record in platform_changes audit log
+        if prev_plat is not None and platform_number is not None and prev_plat != platform_number:
+            client.table("platform_changes").insert(
+                {
+                    "train_id": train_id,
+                    "station_id": station_id,
+                    "previous_platform": str(prev_plat),
+                    "new_platform": str(platform_number),
+                    "reason": "Operational platform reassignment",
+                    "source": source,
+                    "changed_at": now_iso,
+                }
+            ).execute()
+
+        return True
+    except Exception as exc:
+        logger.warning("store_platform_assignment failed: %s", exc)
+        return False
+
+
+def get_previous_platform(
+    train_number: str,
+    current_platform: Optional[int],
+    station_code: str = "CNB",
+) -> Optional[int]:
+    """
+    Return the platform number from the most recent platform change
+    if it differs from current_platform.
+    """
+    client = _get_client()
+    if client is None:
+        return None
+
+    train_id = get_train_id(train_number) or 1
+    station_id = get_station_id(station_code)
+
+    try:
+        response = (
+            client.table("platform_changes")
+            .select("previous_platform, new_platform")
+            .eq("train_id", train_id)
+            .eq("station_id", station_id)
+            .order("changed_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        rows = response.data or []
+        if rows:
+            prev = rows[0].get("previous_platform")
+            if prev is not None:
+                return int(prev)
+    except Exception as exc:
+        logger.warning("get_previous_platform failed: %s", exc)
+
+    return None
+
+
+def store_weather_snapshot(
+    station_code: str,
+    weather_data: Dict[str, Any],
+) -> bool:
+    """Store live weather conditions in Supabase weather_data table."""
+    client = _get_client()
+    if client is None:
+        return False
+
+    station_id = get_station_id(station_code)
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    try:
+        client.table("weather_data").insert(
+            {
+                "station_id": station_id,
+                "temperature_c": float(weather_data.get("temperature_c", 28.0) or 28.0),
+                "humidity_percent": float(weather_data.get("humidity_pct", 60.0) or 60.0),
+                "rain_mm": float(weather_data.get("rain_mm", 0.0) or 0.0),
+                "precipitation_probability": float(weather_data.get("rain_probability_pct", 0.0) or 0.0),
+                "wind_speed_kmph": float(weather_data.get("wind_speed_kmph", 10.0) or 10.0),
+                "weather_description": str(weather_data.get("weather_condition", "Clear sky")),
+                "source": str(weather_data.get("data_source", "OPEN_METEO_API")),
+                "recorded_at": now_iso,
+            }
+        ).execute()
+        return True
+    except Exception as exc:
+        logger.warning("store_weather_snapshot failed: %s", exc)
+        return False
+
+
+def get_ml_training_data(
+    section_id: Optional[str] = None,
+    limit: int = 1000,
+) -> List[Dict[str, Any]]:
+    """Fetch telemetry and live position records for ML model training."""
+    client = _get_client()
+    if client is None:
+        return []
+
+    try:
+        res = (
+            client.table("train_live_positions")
+            .select("train_id, speed_kmph, distance_travelled_km, recorded_at")
+            .order("recorded_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return res.data or []
+    except Exception as exc:
+        logger.warning("get_ml_training_data failed: %s", exc)
+        return []
+
+
+def store_ml_prediction(
+    train_number: str,
+    predicted_delay_minutes: float,
+    predicted_eta: Optional[str] = None,
+    predicted_congestion_level: str = "LOW",
+    congestion_probability: float = 0.15,
+    confidence_score: float = 0.95,
+    model_name: str = "CalibratedGradientEnsemble",
+    model_version: str = "1.0.2",
+    schedule_id: Optional[int] = None,
+) -> bool:
+    """Store an ML delay/congestion prediction in Supabase ml_predictions."""
+    client = _get_client()
+    if client is None:
+        return False
+
+    train_id = get_train_id(train_number) or 1
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    try:
+        payload = {
+            "train_id": train_id,
+            "schedule_id": schedule_id,
+            "predicted_delay_minutes": float(predicted_delay_minutes),
+            "predicted_eta": predicted_eta or now_iso,
+            "predicted_congestion_level": str(predicted_congestion_level),
+            "congestion_probability": float(congestion_probability),
+            "confidence_score": float(confidence_score),
+            "model_name": str(model_name),
+            "model_version": str(model_version),
+        }
+        res = client.table("ml_predictions").insert(payload).execute()
+        return bool(res.data)
+    except Exception as exc:
+        logger.warning("store_ml_prediction failed: %s", exc)
+        return False
+
+
+def get_latest_ml_prediction(train_number: str) -> Optional[Dict[str, Any]]:
+    """Retrieve the latest ML prediction for a train."""
+    client = _get_client()
+    if client is None:
+        return None
+
+    train_id = get_train_id(train_number) or 1
+    try:
+        res = (
+            client.table("ml_predictions")
+            .select("*")
+            .eq("train_id", train_id)
+            .order("id", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if res.data and len(res.data) > 0:
+            return res.data[0]
+    except Exception as exc:
+        logger.warning("get_latest_ml_prediction failed: %s", exc)
+
+    return None
+
+
+def get_station_platform_status(station_code: str = "CNB") -> List[Dict[str, Any]]:
+    """Retrieve latest platform assignments for all trains at a station."""
+    client = _get_client()
+    if client is None:
+        return []
+
+    station_id = get_station_id(station_code)
+    try:
+        res = (
+            client.table("platform_status")
+            .select("*")
+            .eq("station_id", station_id)
+            .order("updated_at", desc=True)
+            .limit(20)
+            .execute()
+        )
+        return res.data or []
+    except Exception as exc:
+        logger.warning("get_station_platform_status failed: %s", exc)
+        return []
+
+
+def get_latest_weather(station_code: str = "CNB") -> Optional[Dict[str, Any]]:
+    """Retrieve the most recent weather snapshot for a station."""
+    client = _get_client()
+    if client is None:
+        return None
+
+    station_id = get_station_id(station_code)
+    try:
+        res = (
+            client.table("weather_data")
+            .select("*")
+            .eq("station_id", station_id)
+            .order("recorded_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if res.data and len(res.data) > 0:
+            return res.data[0]
+    except Exception as exc:
+        logger.warning("get_latest_weather failed: %s", exc)
+
+    return None
+

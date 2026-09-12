@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Data & Models
+data/datasets/raw/
+data/models/*.pkl
+data/models/*.joblib
+
+# Cloudflare
+cloudflared.exe
+
+# Scratch
+scratch/
+
+# Byte-compiled
+*.pyc

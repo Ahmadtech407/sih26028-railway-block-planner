@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Indian Railways AI Section Controller & Passenger Portal (SIH26028)</title>
+  <meta name="description" content="AI-Powered Railway Section Controller, CP-SAT Maintenance Block Optimizer, and Passenger Tracking Portal.">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            railway: {
+              navy: '#0a0f1d',
+              card: '#0f172a',
+              sky: '#38bdf8',
+              emerald: '#10b981',
+              amber: '#f59e0b',
+              rose: '#f43f5e'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Leaflet GIS Map CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="min-h-screen flex flex-col relative text-slate-100 selection:bg-sky-500 selection:text-white">
+
+  <!-- Ambient Glow Background -->
+  <div class="ambient-glow"></div>
+
+  <!-- Main Application Wrapper -->
+  <div class="relative z-10 flex flex-col min-h-screen">
+
+    <!-- Top Navigation & System Status Bar -->
+    <header class="border-b border-white/10 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        
+        <!-- Branding & Logo -->
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20 text-xl font-black">
+            🚆
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-extrabold text-lg tracking-tight bg-gradient-to-r from-sky-400 to-indigo-200 bg-clip-text text-transparent">
+                INDIAN RAILWAYS AI CONTROLLER
+              </span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider bg-sky-500/20 text-sky-400 border border-sky-500/30">
+                SIH26028
+              </span>
+            </div>
+            <div class="text-xs text-slate-400 flex items-center gap-2">
+              <span>Section Controller & Passenger Portal</span>
+              <span>•</span>
+              <span id="live-date">12 Sep 2026</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Telemetry & Backend Status Indicator -->
+        <div class="flex items-center gap-4">
+          <!-- Backend Connection Status -->
+          <div class="hidden sm:flex items-center gap-2 bg-slate-800/80 border border-white/10 rounded-full px-3.5 py-1.5 text-xs shadow-inner">
+            <span id="backend-status-badge" class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+            <span id="backend-status-text" class="text-slate-300 font-medium">Connecting...</span>
+            <button id="btn-change-backend" title="Change API URL" class="ml-1 text-sky-400 hover:text-sky-300 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+
+          <!-- Live Indian Standard Time -->
+          <div class="font-mono text-sm font-semibold tracking-wider text-sky-400 bg-sky-950/40 border border-sky-800/40 px-3 py-1 rounded-lg">
+            <span id="live-clock">12:00:00 IST</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex gap-2 overflow-x-auto border-t border-white/5 pt-1">
+        <button class="nav-tab active px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-white transition-all flex items-center gap-2" data-tab="trains">
+          <span>🚆</span> Live Trains & PNR
+        </button>
+        <button class="nav-tab px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-white transition-all flex items-center gap-2" data-tab="map">
+          <span>🗺️</span> GIS Corridor Map
+        </button>
+        <button class="nav-tab px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-white transition-all flex items-center gap-2" data-tab="sections">
+          <span>⚡</span> Sections & Maintenance Blocks
+        </button>
+        <button class="nav-tab px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-white transition-all flex items-center gap-2" data-tab="chat">
+          <span>🤖</span> AI Section Controller
+        </button>
+      </div>
+    </header>
+
+    <!-- App Main Body Content -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+
+      <!-- ================================================================= -->
+      <!-- TAB 1: LIVE TRAINS & PNR TRACKING                                 -->
+      <!-- ================================================================= -->
+      <div id="tab-trains" class="tab-content space-y-6">
+        
+        <!-- Quick Train Selection Chips -->
+        <div class="glass-panel p-4 flex items-center justify-between flex-wrap gap-3">
+          <div class="flex items-center gap-2">
+            <span class="text-xs uppercase font-bold tracking-wider text-slate-400">Quick Trains:</span>
+            <div class="flex flex-wrap gap-2">
+              <button class="train-chip px-3 py-1.5 rounded-lg text-xs font-medium border border-white/10 bg-slate-800/80 hover:bg-sky-500/20 hover:border-sky-400 transition-all" data-train="12301">
+                12301 Howrah Rajdhani
+              </button>
+              <button class="train-chip px-3 py-1.5 rounded-lg text-xs font-medium border border-white/10 bg-slate-800/80 hover:bg-sky-500/20 hover:border-sky-400 transition-all" data-train="12004">
+                12004 Lucknow Shatabdi
+              </button>
+              <button class="train-chip px-3 py-1.5 rounded-lg text-xs font-medium border border-white/10 bg-slate-800/80 hover:bg-sky-500/20 hover:border-sky-400 transition-all" data-train="22436">
+                22436 Vande Bharat
+              </button>
+              <button class="train-chip px-3 py-1.5 rounded-lg text-xs font-medium border border-white/10 bg-slate-800/80 hover:bg-sky-500/20 hover:border-sky-400 transition-all" data-train="12424">
+                12424 Dibrugarh Rajdhani
+              </button>
+            </div>
+          </div>
+          <div class="text-xs text-slate-400">
+            Backend API: <span id="server-url-display" class="font-mono text-sky-400">http://127.0.0.1:8000</span>
+          </div>
+        </div>
+
+        <!-- Train Telemetry Dashboard Card -->
+        <div class="glass-panel p-6 space-y-6">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-4">
+            <div>
+              <div class="flex items-center gap-3">
+                <h2 id="train-title" class="text-2xl font-bold text-white tracking-tight">12301 - Howrah Rajdhani Express</h2>
+                <span id="train-delay-badge" class="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  ON TIME (0m)
+                </span>
+              </div>
+              <p id="train-route-sub" class="text-sm text-slate-400 mt-1">
+                New Delhi (NDLS) ➔ Howrah Jn (HWH) | Route: NDLS - HWH
+              </p>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-xs text-slate-400">Telemetry Engine:</span>
+              <span id="metric-source" class="px-2.5 py-1 rounded text-xs font-mono font-medium bg-slate-800 border border-white/10 text-sky-300">
+                CRIS_TMS / CALIBRATED_MODEL
+              </span>
+            </div>
+          </div>
+
+          <!-- Key Metrics Grid -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="p-4 bg-slate-900/60 rounded-xl border border-white/5 space-y-1">
+              <div class="text-xs text-slate-400 uppercase font-semibold">Speed</div>
+              <div id="metric-speed" class="text-2xl font-mono font-black text-sky-400">112 km/h</div>
+              <div class="text-[11px] text-slate-500">Permissible: 130 km/h</div>
+            </div>
+            <div class="p-4 bg-slate-900/60 rounded-xl border border-white/5 space-y-1">
+              <div class="text-xs text-slate-400 uppercase font-semibold">Current Station</div>
+              <div id="metric-curr-stn" class="text-lg font-bold text-white truncate">Kanpur Central</div>
+              <div class="text-[11px] text-slate-500">Chainage: 440 KM</div>
+            </div>
+            <div class="p-4 bg-slate-900/60 rounded-xl border border-white/5 space-y-1">
+              <div class="text-xs text-slate-400 uppercase font-semibold">Next Halt</div>
+              <div id="metric-next-stn" class="text-lg font-bold text-white truncate">Prayagraj Jn</div>
+              <div id="metric-eta" class="text-[11px] text-emerald-400">ETA: 20:45 IST</div>
+            </div>
+            <div class="p-4 bg-slate-900/60 rounded-xl border border-white/5 space-y-1">
+              <div class="text-xs text-slate-400 uppercase font-semibold">Platform Prediction</div>
+              <div id="metric-platform" class="text-lg font-bold text-amber-400">Platform 1</div>
+              <div class="text-[11px] text-slate-500">Confidence: 94% (AI)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PNR Search Card -->
+        <div class="glass-panel p-6 space-y-4">
+          <div class="flex items-center gap-2 border-b border-white/10 pb-3">
+            <span class="text-lg">🎫</span>
+            <h3 class="font-bold text-lg text-white">IRCTC PNR Status & Passenger Verification</h3>
+          </div>
+
+          <div class="flex flex-col sm:flex-row gap-3">
+            <input id="pnr-input" type="text" placeholder="Enter 10-digit PNR (e.g. 2418501928)" maxlength="10" 
+              class="flex-1 px-4 py-2.5 rounded-xl bg-slate-900/80 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-sky-400 font-mono text-sm">
+            <button id="btn-pnr-search" class="px-6 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-sm shadow-lg shadow-sky-500/20 transition-all">
+              Search PNR
+            </button>
+          </div>
+
+          <!-- Sample PNRs -->
+          <div class="text-xs text-slate-400 flex items-center gap-2 flex-wrap">
+            <span>Try sample PNRs:</span>
+            <button onclick="document.getElementById('pnr-input').value='2418501928'; searchPNR('2418501928');" class="text-sky-400 underline hover:text-sky-300 font-mono">2418501928 (Rajdhani)</button>
+            <span>•</span>
+            <button onclick="document.getElementById('pnr-input').value='4829104751'; searchPNR('4829104751');" class="text-sky-400 underline hover:text-sky-300 font-mono">4829104751 (Vande Bharat)</button>
+          </div>
+
+          <!-- PNR Search Results Card -->
+          <div id="pnr-result-card" class="hidden mt-4 p-5 rounded-xl bg-slate-900/80 border border-sky-500/20 space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/10 pb-3 gap-2">
+              <div>
+                <span class="text-xs text-slate-400 uppercase">PNR Number:</span>
+                <span id="pnr-res-number" class="ml-2 font-mono font-bold text-sky-400 text-lg">2418501928</span>
+              </div>
+              <div class="text-sm font-semibold text-white" id="pnr-res-train">
+                12301 - Howrah Rajdhani Express
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div>
+                <span class="text-slate-400 block">Journey Route:</span>
+                <span id="pnr-res-route" class="font-semibold text-white">NDLS ➔ CNB</span>
+              </div>
+              <div>
+                <span class="text-slate-400 block">Journey Date:</span>
+                <span id="pnr-res-date" class="font-semibold text-white">2026-09-15</span>
+              </div>
+              <div>
+                <span class="text-slate-400 block">Class:</span>
+                <span id="pnr-res-class" class="font-semibold text-white">3A (AC 3 Tier)</span>
+              </div>
+              <div>
+                <span class="text-slate-400 block">Booking Status:</span>
+                <span class="font-semibold text-emerald-400">CONFIRMED (CNF)</span>
+              </div>
+            </div>
+
+            <!-- Passengers List -->
+            <div class="space-y-2 pt-2">
+              <div class="text-xs uppercase font-bold text-slate-400">Passenger Allocation:</div>
+              <div id="pnr-res-passengers" class="space-y-2">
+                <!-- Injected via JavaScript -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- TAB 2: GIS CORRIDOR MAP                                           -->
+      <!-- ================================================================= -->
+      <div id="tab-map" class="tab-content hidden space-y-4">
+        <div class="glass-panel p-4 flex items-center justify-between flex-wrap gap-2">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-sky-400 pulse-green"></span>
+            <h3 class="font-bold text-white text-sm">Interactive Trunk Corridor GIS Radar (Delhi - Kanpur - Prayagraj - Howrah)</h3>
+          </div>
+          <div class="text-xs text-slate-400 flex items-center gap-4">
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Active Train Marker</span>
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span> Junction Station</span>
+          </div>
+        </div>
+
+        <div class="glass-panel p-2 overflow-hidden">
+          <div id="railway-map" style="height: 520px; width: 100%; border-radius: 0.75rem;"></div>
+        </div>
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- TAB 3: SECTIONS & MAINTENANCE BLOCKS                              -->
+      <!-- ================================================================= -->
+      <div id="tab-sections" class="tab-content hidden space-y-6">
+        <div class="glass-panel p-6 space-y-4">
+          <div class="flex items-center justify-between border-b border-white/10 pb-4">
+            <div>
+              <h3 class="font-bold text-lg text-white">Section Occupancy & Maintenance Blocks</h3>
+              <p class="text-xs text-slate-400">Live track circuit telemetry from North Central Railway control office</p>
+            </div>
+            <div class="px-3 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
+              OR-Tools CP-SAT Solver: READY
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left">
+              <thead>
+                <tr class="text-xs uppercase text-slate-400 border-b border-white/10">
+                  <th class="py-2.5 px-4">Section ID</th>
+                  <th class="py-2.5 px-4">Corridor Name</th>
+                  <th class="py-2.5 px-4">Distance</th>
+                  <th class="py-2.5 px-4">Max Speed</th>
+                  <th class="py-2.5 px-4">Occupancy</th>
+                  <th class="py-2.5 px-4">Maintenance Block</th>
+                </tr>
+              </thead>
+              <tbody id="sections-table-body">
+                <!-- Injected via JavaScript -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Block Optimization Overview -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="glass-panel p-5 space-y-2">
+            <h4 class="font-bold text-sm text-sky-400">🤖 Zero-Conflict CP-SAT Scheduling</h4>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              The backend mathematical optimizer integrates Google OR-Tools Constraint Programming to calculate zero-conflict track maintenance windows while prioritizing passenger express trains over freight traffic.
+            </p>
+          </div>
+          <div class="glass-panel p-5 space-y-2">
+            <h4 class="font-bold text-sm text-emerald-400">⚡ Dynamic Speed Restrictions (TSR/PSR)</h4>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Speed restrictions are integrated into dead-reckoning kinematics calculations to produce realistic arrival forecasts and avoid cascading secondary delays across consecutive track sections.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- TAB 4: AI SECTION CONTROLLER ASSISTANT                            -->
+      <!-- ================================================================= -->
+      <div id="tab-chat" class="tab-content hidden space-y-4">
+        <div class="glass-panel p-6 flex flex-col h-[560px]">
+          <div class="border-b border-white/10 pb-3 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 pulse-green"></span>
+              <span class="font-bold text-white text-sm">AI Section Controller Dispatch Assistant</span>
+            </div>
+            <span class="text-xs text-slate-400">Powered by Antigravity / Gemini</span>
+          </div>
+
+          <!-- Chat Messages Container -->
+          <div id="chat-messages" class="flex-1 overflow-y-auto py-4 space-y-3 pr-2">
+            <!-- Messages will be appended here -->
+          </div>
+
+          <!-- Prompt Suggestions -->
+          <div class="py-2 flex items-center gap-2 overflow-x-auto text-xs">
+            <button class="prompt-pill px-3 py-1 rounded-full bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-all whitespace-nowrap border border-white/5">
+              Suggest 2h block between Kanpur and Prayagraj
+            </button>
+            <button class="prompt-pill px-3 py-1 rounded-full bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-all whitespace-nowrap border border-white/5">
+              What is the delay on Train 12301?
+            </button>
+            <button class="prompt-pill px-3 py-1 rounded-full bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-all whitespace-nowrap border border-white/5">
+              Check fog risk on Delhi-Kanpur line
+            </button>
+          </div>
+
+          <!-- Input Box -->
+          <div class="pt-2 border-t border-white/10 flex gap-2">
+            <input id="chat-input" type="text" placeholder="Type instructions or ask the Section Controller assistant..." 
+              class="flex-1 px-4 py-2.5 rounded-xl bg-slate-900/90 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-sky-400 text-sm">
+            <button id="btn-chat-send" class="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-sm transition-all flex items-center gap-1.5">
+              <span>Send</span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-white/10 bg-slate-950/70 text-slate-500 text-xs py-4 px-4 sm:px-6 lg:px-8">
+      <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+        <div>
+          Smart India Hackathon (SIH26028) • AI Section Controller & Block Planner
+        </div>
+        <div class="flex items-center gap-4">
+          <span>Netlify Frontend</span>
+          <span>•</span>
+          <span>Render FastAPI Backend</span>
+          <span>•</span>
+          <span>Leaflet GIS</span>
+        </div>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Application Script -->
+  <script src="app.js"></script>
+</body>
+</html>
