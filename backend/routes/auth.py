@@ -38,10 +38,12 @@ bearer_scheme = HTTPBearer(auto_error=False)
 # Configuration
 # ---------------------------------------------------------
 
-JWT_SECRET = os.getenv(
-    "RAILTRACK_JWT_SECRET",
-    "change-this-in-production",
-)
+_env_secret = os.getenv("RAILTRACK_JWT_SECRET")
+if not _env_secret or _env_secret == "change-this-in-production":
+    # Generate high-entropy 256-bit secret to prevent token forgery
+    JWT_SECRET = secrets.token_hex(32)
+else:
+    JWT_SECRET = _env_secret
 
 JWT_TTL_SECONDS = 60 * 60 * 24 * 7
 # 7 days

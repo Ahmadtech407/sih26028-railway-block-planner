@@ -199,7 +199,7 @@ def _with_telemetry_fields(data: Dict[str, Any], now: datetime, source: str) -> 
     speed = float(data.get("speed_kmph", 80.0))
     current_delay = int(data.pop("delay_minutes", 0) or 0)
 
-    congestion = ml.predict_congestion(
+    congestion, congestion_prob = ml.predict_congestion_with_probability(
         train_number=data.get("train_number", ""),
         priority=priority,
         speed_kmph=speed,
@@ -233,7 +233,7 @@ def _with_telemetry_fields(data: Dict[str, Any], now: datetime, source: str) -> 
                 train_number=str(data.get("train_number", "")),
                 predicted_delay_minutes=float(predicted_delay or 0.0),
                 predicted_congestion_level=str(congestion),
-                congestion_probability=0.15 if congestion == "LOW" else (0.45 if congestion == "MEDIUM" else 0.85),
+                congestion_probability=congestion_prob,
                 confidence_score=0.96,
                 model_name="RidgeLinearRegressor_v2" if priority <= 2 else "RandomForest_v2",
                 model_version="2.0.0",

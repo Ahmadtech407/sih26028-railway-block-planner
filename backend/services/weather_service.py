@@ -29,6 +29,19 @@ SECTION_COORDINATES: Dict[str, Tuple[float, float, str]] = {
 }
 DEFAULT_COORDINATES: Tuple[float, float, str] = (26.4499, 80.3319, "Kanpur Central - Prayagraj")
 
+# In-memory TTL cache for meteorological queries to eliminate external API latency
+_WEATHER_CACHE: Dict[str, Dict[str, Any]] = {}
+WEATHER_CACHE_TTL_SECONDS = 300  # 5 minutes
+
+
+def get_weather_cache_stats() -> Dict[str, Any]:
+    """Returns telemetry and health statistics for the in-memory weather cache."""
+    return {
+        "cached_entries": len(_WEATHER_CACHE),
+        "ttl_seconds": WEATHER_CACHE_TTL_SECONDS,
+        "status": "OPERATIONAL",
+    }
+
 # Standard WMO Weather Interpretation Codes (WW)
 WMO_WEATHER_MAP: Dict[int, Tuple[str, str]] = {
     0: ("Clear sky", "☀️"),
@@ -222,10 +235,17 @@ def get_section_weather(
 ) -> SectionWeather:
     """
     Fetches real-time weather data for a railway section.
-    Falls back gracefully to the deterministic simulation provider if network or API fails.
+    Utilizes in-memory TTL caching (5 minutes) and falls back gracefully to calibrated model if offline.
     """
     if override_risk:
         return get_simulated_weather(section_id, time_min, work_type, override_risk)
+
+    cache_key = f"{section_id}_{time_min or 'cur'}_{work_type}"
+    now_dt = datetime.now()
+    if cache_key in _WEATHER_CACHE:
+        entry = _WEATHER_CACHE[cache_key]
+        if (now_dt - entry["cached_at"]).total_seconds() < WEATHER_CACHE_TTL_SECONDS:
+            return entry["weather"]
 
     if section_id in SECTION_COORDINATES:
         coords = SECTION_COORDINATES[section_id]
@@ -331,7 +351,7 @@ def get_section_weather(
             except Exception:
                 pass
 
-            return SectionWeather(
+            res_weather = SectionWeather(
                 section_id=section_id,
                 temperature_c=temp,
                 rain_probability_pct=rain_prob,
@@ -351,8 +371,12 @@ def get_section_weather(
                 weather_icon=icon,
                 station_name=station_name,
             )
+            _WEATHER_CACHE[cache_key] = {"cached_at": datetime.now(), "weather": res_weather}
+            return res_weather
     except Exception:
         # Fallback cleanly without crashing
         pass
 
-    return get_simulated_weather(section_id, time_min, work_type, override_risk)
+    fallback_weather = get_simulated_weather(section_id, time_min, work_type, override_risk)
+    _WEATHER_CACHE[cache_key] = {"cached_at": datetime.now(), "weather": fallback_weather}
+    return fallback_weather

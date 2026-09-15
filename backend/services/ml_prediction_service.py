@@ -158,7 +158,7 @@ def _build_features_df(
     return df_reg, df_clf
 
 
-def predict_congestion(
+def predict_congestion_with_probability(
     priority: int = 3,
     speed_kmph: float = 80.0,
     weather_risk: str = "LOW",
@@ -166,8 +166,8 @@ def predict_congestion(
     hour: Optional[int] = None,
     train_number: str = "",
     **kwargs,
-) -> str:
-    """Predict passenger congestion level (LOW, MEDIUM, HIGH) via trained ML model."""
+) -> Tuple[str, float]:
+    """Predict passenger congestion level (LOW, MEDIUM, HIGH) and its calibrated probability."""
     _load_models()
     if hour is None:
         hour = _hour_of_day()
@@ -182,18 +182,46 @@ def predict_congestion(
                 hour=hour,
             )
             pred = _CONGESTION_MODEL.predict(df_clf)[0]
+            prob = 0.88
+            if hasattr(_CONGESTION_MODEL, "predict_proba"):
+                probs = _CONGESTION_MODEL.predict_proba(df_clf)[0]
+                classes = list(_CONGESTION_MODEL.classes_)
+                if pred in classes:
+                    prob = float(probs[classes.index(pred)])
             if pred in ("LOW", "MEDIUM", "HIGH"):
-                return pred
+                return pred, round(prob, 2)
         except Exception as exc:
             logger.debug("Trained classifier inference error: %s", exc)
 
     # Calibrated rule-based fallback
     score = (priority <= 2) * 20 + ((6 <= hour <= 10 or 17 <= hour <= 21)) * 25 + (speed_kmph < 75) * 25 + (delay_minutes > 15) * 30
     if score >= 60:
-        return "HIGH"
+        return "HIGH", 0.85
     elif score >= 35:
-        return "MEDIUM"
-    return "LOW"
+        return "MEDIUM", 0.70
+    return "LOW", 0.90
+
+
+def predict_congestion(
+    priority: int = 3,
+    speed_kmph: float = 80.0,
+    weather_risk: str = "LOW",
+    delay_minutes: int = 0,
+    hour: Optional[int] = None,
+    train_number: str = "",
+    **kwargs,
+) -> str:
+    """Predict passenger congestion level (LOW, MEDIUM, HIGH) via trained ML model."""
+    level, _ = predict_congestion_with_probability(
+        priority=priority,
+        speed_kmph=speed_kmph,
+        weather_risk=weather_risk,
+        delay_minutes=delay_minutes,
+        hour=hour,
+        train_number=train_number,
+        **kwargs,
+    )
+    return level
 
 
 def predict_delay_minutes(

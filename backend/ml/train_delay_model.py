@@ -90,12 +90,14 @@ def create_preprocessor(numeric_features, categorical_features) -> ColumnTransfo
     return preprocessor
 
 
+from sklearn.model_selection import train_test_split, KFold, StratifiedKFold, cross_val_score
+
 def train_delay_regressor(df: pd.DataFrame) -> Tuple[Pipeline, Dict[str, Any]]:
     """
-    Train and compare multiple models to predict continuous delay in minutes.
+    Train and rigorously compare multiple regression models with 5-fold cross-validation.
     Models evaluated: Naive Baseline, Ridge Regression, Random Forest, Gradient Boosting.
     """
-    logger.info("--- Starting Delay Regressor Model Comparison ---")
+    logger.info("--- Starting Delay Regressor Model Comparison with 5-Fold Cross-Validation ---")
 
     features_num = [
         "priority", "StationOrder", "halt_time_minutes",
@@ -127,6 +129,7 @@ def train_delay_regressor(df: pd.DataFrame) -> Tuple[Pipeline, Dict[str, Any]]:
     best_name = None
     best_pipe = None
     best_mae = float("inf")
+    kf = KFold(n_splits=5, shuffle=True, random_state=42)
 
     for name, model in candidates.items():
         preprocessor = create_preprocessor(features_num, features_cat)
@@ -134,6 +137,11 @@ def train_delay_regressor(df: pd.DataFrame) -> Tuple[Pipeline, Dict[str, Any]]:
             ("preprocessor", preprocessor),
             ("model", model),
         ])
+
+        # 5-fold cross validation on training partition
+        cv_scores = cross_val_score(pipe, X_train, y_train, cv=kf, scoring="neg_mean_absolute_error", n_jobs=-1)
+        cv_mae = round(float(-cv_scores.mean()), 3)
+        cv_std = round(float(cv_scores.std()), 3)
 
         pipe.fit(X_train, y_train)
         y_pred = pipe.predict(X_test)
@@ -146,15 +154,17 @@ def train_delay_regressor(df: pd.DataFrame) -> Tuple[Pipeline, Dict[str, Any]]:
             "MAE_minutes": round(float(mae), 3),
             "RMSE_minutes": round(float(rmse), 3),
             "R2_score": round(float(r2), 3),
+            "CV_5Fold_MAE": cv_mae,
+            "CV_5Fold_Std": cv_std,
         }
-        logger.info("Candidate [%s] -> MAE: %.2f min | RMSE: %.2f min | R^2: %.3f", name, mae, rmse, r2)
+        logger.info("Candidate [%s] -> Test MAE: %.2f min | 5-Fold CV MAE: %.2f±%.2f | R^2: %.3f", name, mae, cv_mae, cv_std, r2)
 
         if mae < best_mae:
             best_mae = mae
             best_name = name
             best_pipe = pipe
 
-    logger.info("Winner Regressor: %s (MAE=%.2f min)", best_name, best_mae)
+    logger.info("Winner Regressor: %s (Test MAE=%.2f min)", best_name, best_mae)
     results["best_model"] = best_name
     return best_pipe, results
 
@@ -189,6 +199,7 @@ def train_congestion_classifier(df: pd.DataFrame) -> Tuple[Pipeline, Dict[str, A
     best_name = None
     best_pipe = None
     best_f1 = -1.0
+    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
     for name, model in candidates.items():
         preprocessor = create_preprocessor(features_num, features_cat)
@@ -196,6 +207,10 @@ def train_congestion_classifier(df: pd.DataFrame) -> Tuple[Pipeline, Dict[str, A
             ("preprocessor", preprocessor),
             ("model", model),
         ])
+
+        cv_f1_scores = cross_val_score(pipe, X_train, y_train, cv=skf, scoring="f1_macro", n_jobs=-1)
+        cv_f1 = round(float(cv_f1_scores.mean()), 3)
+        cv_f1_std = round(float(cv_f1_scores.std()), 3)
 
         pipe.fit(X_train, y_train)
         y_pred = pipe.predict(X_test)
@@ -210,8 +225,10 @@ def train_congestion_classifier(df: pd.DataFrame) -> Tuple[Pipeline, Dict[str, A
             "Macro_F1": round(float(f1), 3),
             "Precision": round(float(prec), 3),
             "Recall": round(float(rec), 3),
+            "CV_5Fold_Macro_F1": cv_f1,
+            "CV_5Fold_Std": cv_f1_std,
         }
-        logger.info("Candidate [%s] -> Accuracy: %.3f | Macro F1: %.3f", name, acc, f1)
+        logger.info("Candidate [%s] -> Test Acc: %.3f | Test F1: %.3f | 5-Fold CV F1: %.3f±%.3f", name, acc, f1, cv_f1, cv_f1_std)
 
         if f1 > best_f1:
             best_f1 = f1

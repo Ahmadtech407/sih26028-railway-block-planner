@@ -1,27 +1,35 @@
 {
   "version": "IR-GBM-DelayPredictor-v2.0",
-  "trained_at": "2026-09-04T20:27:12.532766+00:00",
+  "trained_at": "2026-09-15T15:15:04.211785+00:00",
   "training_dataset": "ir_delay_training_dataset.csv",
   "delay_regression": {
     "Naive Median Baseline": {
       "MAE_minutes": 19.294,
       "RMSE_minutes": 25.076,
-      "R2_score": -0.001
+      "R2_score": -0.001,
+      "CV_5Fold_MAE": 18.881,
+      "CV_5Fold_Std": 0.306
     },
     "Ridge Linear Regression": {
       "MAE_minutes": 0.101,
       "RMSE_minutes": 0.38,
-      "R2_score": 1.0
+      "R2_score": 1.0,
+      "CV_5Fold_MAE": 0.127,
+      "CV_5Fold_Std": 0.006
     },
     "Random Forest Regressor": {
       "MAE_minutes": 0.103,
       "RMSE_minutes": 0.267,
-      "R2_score": 1.0
+      "R2_score": 1.0,
+      "CV_5Fold_MAE": 0.162,
+      "CV_5Fold_Std": 0.015
     },
     "Gradient Boosting Regressor": {
       "MAE_minutes": 0.116,
       "RMSE_minutes": 0.274,
-      "R2_score": 1.0
+      "R2_score": 1.0,
+      "CV_5Fold_MAE": 0.147,
+      "CV_5Fold_Std": 0.002
     },
     "best_model": "Ridge Linear Regression"
   },
@@ -30,19 +38,25 @@
       "Accuracy": 0.862,
       "Macro_F1": 0.309,
       "Precision": 0.287,
-      "Recall": 0.333
+      "Recall": 0.333,
+      "CV_5Fold_Macro_F1": 0.309,
+      "CV_5Fold_Std": 0.0
     },
     "Random Forest Classifier": {
       "Accuracy": 0.993,
       "Macro_F1": 0.972,
       "Precision": 0.974,
-      "Recall": 0.971
+      "Recall": 0.971,
+      "CV_5Fold_Macro_F1": 0.956,
+      "CV_5Fold_Std": 0.029
     },
     "Gradient Boosting Classifier": {
       "Accuracy": 0.991,
       "Macro_F1": 0.954,
       "Precision": 0.954,
-      "Recall": 0.954
+      "Recall": 0.954,
+      "CV_5Fold_Macro_F1": 0.959,
+      "CV_5Fold_Std": 0.022
     },
     "confusion_matrix": {
       "labels": [

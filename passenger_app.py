@@ -2,6 +2,7 @@
 
 import textwrap
 import html
+import functools
 import os
 import re
 import time
@@ -798,6 +799,7 @@ def clean_html(s: str) -> str:
 
 
 
+@functools.lru_cache(maxsize=128)
 def generate_service_status_svg(status="On Time", is_delayed=False):
     color = "#f43f5e" if is_delayed else "#10b981"
     glow_color = "rgba(244, 63, 94, 0.4)" if is_delayed else "rgba(16, 185, 129, 0.4)"
@@ -816,6 +818,7 @@ def generate_service_status_svg(status="On Time", is_delayed=False):
     return clean_html(svg)
 
 
+@functools.lru_cache(maxsize=128)
 def generate_track_svg(completion_pct=50, from_station="Kanpur Central", current_station="Current Position", next_station="Auraiya", dest_station="Prayagraj Junction"):
     comp = max(0.0, min(100.0, float(completion_pct)))
     train_x = max(130.0, min(830.0, 80.0 + (comp / 100.0) * 800.0))
@@ -859,36 +862,33 @@ def generate_track_svg(completion_pct=50, from_station="Kanpur Central", current
 </defs>
 <line x1="40" y1="52" x2="920" y2="52" stroke="#1e293b" stroke-width="4" stroke-linecap="round" />
 <line x1="40" y1="62" x2="920" y2="62" stroke="#1e293b" stroke-width="4" stroke-linecap="round" />
-{track_ties_html}
 <line x1="40" y1="52" x2="{train_x:.1f}" y2="52" stroke="#06b6d4" stroke-width="4" stroke-linecap="round" filter="url(#neonGlowCyan)" />
 <line x1="40" y1="62" x2="{train_x:.1f}" y2="62" stroke="#06b6d4" stroke-width="4" stroke-linecap="round" filter="url(#neonGlowCyan)" />
-<circle cx="80" cy="57" r="8" fill="#06b6d4" filter="url(#neonGlowCyan)" />
-<circle cx="80" cy="57" r="3.5" fill="#ffffff" />
-<text x="80" y="80" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">{html.escape(from_name)}</text>
-<circle cx="{train_x:.1f}" cy="57" r="14" fill="none" stroke="#06b6d4" stroke-width="1.5" opacity="0.4" />
-<circle cx="{train_x:.1f}" cy="57" r="8.5" fill="#0f172a" stroke="#06b6d4" stroke-width="3" filter="url(#neonGlowCyan)" />
-<circle cx="{train_x:.1f}" cy="57" r="3.5" fill="#22d3ee" />
-<text x="{pos_label_x:.1f}" y="80" text-anchor="{pos_anchor}" font-size="11" font-weight="700" fill="#22d3ee" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">Current Train Position</text>
-<text x="{train_x:.1f}" y="14" text-anchor="middle" font-size="12" font-weight="800" fill="#22d3ee" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">{comp:.0f}%</text>
-<polygon points="{train_x-5:.1f},17 {train_x+5:.1f},17 {train_x:.1f},21" fill="#06b6d4" />
-<g transform="translate({train_x-64:.1f}, 24)">
-<rect x="0" y="3" width="112" height="19" rx="3" fill="#0f172a" stroke="#38bdf8" stroke-width="1.5" />
-<path d="M 112 3 L 128 12 L 125 22 L 112 22 Z" fill="#0f172a" stroke="#38bdf8" stroke-width="1.5" />
-<rect x="6" y="7" width="102" height="6" rx="1" fill="#38bdf8" opacity="0.8" />
-<polygon points="109,7 122,10 120,13 109,13" fill="#22d3ee" />
-<rect x="0" y="15" width="114" height="2.5" fill="#06b6d4" />
-<polygon points="114,15 124,16 123,17.5 114,17.5" fill="#06b6d4" />
-<line x1="34" y1="3" x2="34" y2="22" stroke="#334155" stroke-width="1" />
-<line x1="68" y1="3" x2="68" y2="22" stroke="#334155" stroke-width="1" />
-<line x1="98" y1="3" x2="98" y2="22" stroke="#334155" stroke-width="1" />
-</g>
+{track_ties_html}
+<circle cx="40" cy="57" r="7" fill="#0f172a" stroke="#06b6d4" stroke-width="2.5" />
+<circle cx="40" cy="57" r="3.5" fill="#06b6d4" />
+<text x="40" y="79" text-anchor="middle" font-size="11" font-weight="700" fill="#f8fafc" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">{html.escape(from_name)}</text>
+<text x="40" y="91" text-anchor="middle" font-size="9" font-weight="600" fill="#38bdf8" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">Origin</text>
 {next_stop_svg}
-<circle cx="880" cy="57" r="8" fill="#0f172a" stroke="#f59e0b" stroke-width="2.5" filter="url(#neonGlowAmber)" />
-<circle cx="880" cy="57" r="3.5" fill="#f59e0b" />
-<text x="880" y="80" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">{html.escape(dest_name)}</text>
+<circle cx="920" cy="57" r="7" fill="#0f172a" stroke="#10b981" stroke-width="2.5" />
+<circle cx="920" cy="57" r="3.5" fill="#10b981" />
+<text x="920" y="79" text-anchor="middle" font-size="11" font-weight="700" fill="#f8fafc" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">{html.escape(dest_name)}</text>
+<text x="920" y="91" text-anchor="middle" font-size="9" font-weight="600" fill="#34d399" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">Destination</text>
+<g transform="translate({train_x - 30:.1f}, 41)">
+<rect x="0" y="6" width="46" height="18" rx="4" fill="#0284c7" filter="url(#neonGlowCyan)"/>
+<path d="M 44 8 L 56 15 L 44 22 Z" fill="#38bdf8" filter="url(#neonGlowCyan)" />
+<rect x="8" y="10" width="8" height="6" rx="1.5" fill="#e0f2fe" />
+<rect x="20" y="10" width="8" height="6" rx="1.5" fill="#e0f2fe" />
+<rect x="32" y="10" width="8" height="6" rx="1.5" fill="#e0f2fe" />
+<circle cx="12" cy="24" r="4.5" fill="#0f172a" stroke="#38bdf8" stroke-width="1.8" />
+<circle cx="34" cy="24" r="4.5" fill="#0f172a" stroke="#38bdf8" stroke-width="1.8" />
+</g>
+<rect x="{pos_label_x - 35:.1f}" y="2" width="70" height="20" rx="10" fill="rgba(15, 23, 42, 0.85)" stroke="#06b6d4" stroke-width="1.2" />
+<text x="{pos_label_x:.1f}" y="16" text-anchor="{pos_anchor}" font-size="10.5" font-weight="700" fill="#38bdf8" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">{comp:.0f}% Completed</text>
 </svg>"""
     return clean_html(svg)
 
+@functools.lru_cache(maxsize=128)
 def generate_speedometer_svg(speed=112, max_speed=160):
     import math
     frac = min(1.0, max(0.0, float(speed) / max_speed))
@@ -907,6 +907,7 @@ def generate_speedometer_svg(speed=112, max_speed=160):
 </svg>"""
     return clean_html(svg)
 
+@functools.lru_cache(maxsize=128)
 def generate_congestion_gauge_svg(level="LOW"):
     import math
     level_up = str(level).upper()
@@ -1511,8 +1512,9 @@ def sign_out() -> None:
     st.rerun()
 
 
+@st.cache_data(ttl=15, show_spinner=False)
 def check_backend_connection() -> tuple[bool, str]:
-    """Check if FastAPI backend on BACKEND_URL is responding."""
+    """Check if FastAPI backend on BACKEND_URL is responding (cached 15s for responsiveness)."""
     try:
         t0 = datetime.now()
         r = requests.get(f"{BACKEND_URL}/api/sections", timeout=1.2)
