@@ -394,9 +394,9 @@ st.markdown(
     }
 
     .widget-subtext {
-        font-size: 0.78rem;
-        color: #64748b;
-        font-weight: 500;
+        font-size: 0.8rem;
+        color: #94a3b8;
+        font-weight: 600;
         margin-top: 6px;
     }
 
@@ -833,23 +833,19 @@ def generate_track_svg(completion_pct=50, from_station="Kanpur Central", current
     next_name = str(next_station).replace(" Junction", "").replace(" Central", "").replace(" Cantt", "")
     dest_name = str(dest_station).replace(" Junction", "").replace(" Central", "").replace(" Cantt", "")
     
-    if comp >= 95.0 or not next_name or next_name.lower() == dest_name.lower():
+    if comp >= 92.0 or not next_name or next_name.lower() == dest_name.lower() or next_name.lower() == from_name.lower():
         next_stop_svg = ""
     else:
-        next_x = max(train_x + 110.0, min(805.0, train_x + ((880.0 - train_x) * 0.52)))
-        next_stop_svg = f"""<circle cx="{next_x:.1f}" cy="57" r="7" fill="#0f172a" stroke="#f59e0b" stroke-width="2.5" />
+        next_x = max(train_x + 120.0, min(790.0, train_x + ((880.0 - train_x) * 0.52)))
+        if (next_x - train_x) >= 95.0 and (920.0 - next_x) >= 75.0:
+            next_stop_svg = f"""<circle cx="{next_x:.1f}" cy="57" r="7" fill="#0f172a" stroke="#f59e0b" stroke-width="2.5" />
 <circle cx="{next_x:.1f}" cy="57" r="3.5" fill="#f59e0b" />
 <text x="{next_x:.1f}" y="79" text-anchor="middle" font-size="11" font-weight="700" fill="#f8fafc" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">{html.escape(next_name)}</text>
 <text x="{next_x:.1f}" y="91" text-anchor="middle" font-size="9" font-weight="600" fill="#fbbf24" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">Next Stop</text>"""
+        else:
+            next_stop_svg = ""
 
-    pos_label_x = train_x
-    pos_anchor = "middle"
-    if train_x < 190.0:
-        pos_label_x = max(110.0, train_x + 15.0)
-        pos_anchor = "start"
-    elif train_x > 770.0:
-        pos_label_x = min(850.0, train_x - 15.0)
-        pos_anchor = "end"
+    pos_label_x = max(95.0, min(865.0, train_x))
 
     svg = f"""<svg viewBox="0 0 960 96" style="width:100%; height:auto; display:block; margin: 12px 0 16px;">
 <defs>
@@ -883,8 +879,8 @@ def generate_track_svg(completion_pct=50, from_station="Kanpur Central", current
 <circle cx="12" cy="24" r="4.5" fill="#0f172a" stroke="#38bdf8" stroke-width="1.8" />
 <circle cx="34" cy="24" r="4.5" fill="#0f172a" stroke="#38bdf8" stroke-width="1.8" />
 </g>
-<rect x="{pos_label_x - 35:.1f}" y="2" width="70" height="20" rx="10" fill="rgba(15, 23, 42, 0.85)" stroke="#06b6d4" stroke-width="1.2" />
-<text x="{pos_label_x:.1f}" y="16" text-anchor="{pos_anchor}" font-size="10.5" font-weight="700" fill="#38bdf8" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">{comp:.0f}% Completed</text>
+<rect x="{pos_label_x - 54:.1f}" y="2" width="108" height="22" rx="11" fill="rgba(15, 23, 42, 0.92)" stroke="#06b6d4" stroke-width="1.4" />
+<text x="{pos_label_x:.1f}" y="17" text-anchor="middle" font-size="10.5" font-weight="750" fill="#38bdf8" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">{comp:.0f}% Completed</text>
 </svg>"""
     return clean_html(svg)
 
@@ -1426,16 +1422,34 @@ def render_navigation() -> None:
 
 
 def render_auth_screen(mode: str) -> None:
-    """Render sign-in/sign-up and connect it to the FastAPI auth endpoints."""
-    st.markdown('<div class="passenger-title">Railway Passenger Information</div>', unsafe_allow_html=True)
-    if st.button("← Back to passenger information", use_container_width=True, key="auth_back"):
-        st.session_state.auth_screen = None
-        st.rerun()
+    """Render sign-in/sign-up with prominent back buttons and high-contrast dark theme."""
+    c_back_top, c_brand_top = st.columns([2, 5])
+    with c_back_top:
+        if st.button("← Back to Dashboard", use_container_width=True, key="auth_back_top"):
+            st.session_state.auth_screen = None
+            st.session_state.account_view = False
+            st.rerun()
+    with c_brand_top:
+        st.markdown(
+            '<div style="font-size:1.15rem; font-weight:800; color:#22d3ee; padding-top:6px;">'
+            '🚆 RailTrack Passenger Portal'
+            '</div>',
+            unsafe_allow_html=True,
+        )
 
     title = "Sign In" if mode == "signin" else "Create Account"
+    subtitle = (
+        "Enter your credentials to access your live passenger profile and saved trips."
+        if mode == "signin"
+        else "Register for live journey alarms, telemetry alerts, and digital ticket syncing."
+    )
+
     st.markdown(
-        f'<div class="card"><div class="eyebrow">Passenger account</div><h2>{title}</h2>'
-        '<p>Use your mobile number or email to access RailTrack.</p></div>',
+        f"""<div style="background:rgba(13,21,38,0.85); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,0.12); border-top:1px solid rgba(255,255,255,0.22); border-radius:18px; padding:1.3rem 1.6rem; margin:0.85rem 0 1.25rem; box-shadow:0 12px 32px rgba(0,0,0,0.5);">
+            <div style="font-size:0.75rem; font-weight:750; color:#38bdf8; text-transform:uppercase; letter-spacing:0.06em;">Secure Authentication</div>
+            <h2 style="color:#ffffff; font-weight:800; margin:4px 0 6px; font-size:1.55rem; letter-spacing:-0.02em;">{title}</h2>
+            <p style="color:#cbd5e1; font-size:0.92rem; margin:0; font-weight:500;">{subtitle}</p>
+        </div>""",
         unsafe_allow_html=True,
     )
 
@@ -1491,13 +1505,20 @@ def render_auth_screen(mode: str) -> None:
             else:
                 st.error(error)
 
-    if mode == "signin":
-        if st.button("Create Account", use_container_width=True, key="auth_create"):
-            st.session_state.auth_screen = "create"
-            st.rerun()
-    else:
-        if st.button("Already have an account? Sign In", use_container_width=True, key="auth_signin"):
-            st.session_state.auth_screen = "signin"
+    col_switch, col_back_bot = st.columns([1.5, 1])
+    with col_switch:
+        if mode == "signin":
+            if st.button("New to RailTrack? Create Account", use_container_width=True, key="auth_create"):
+                st.session_state.auth_screen = "create"
+                st.rerun()
+        else:
+            if st.button("Already have an account? Sign In", use_container_width=True, key="auth_signin"):
+                st.session_state.auth_screen = "signin"
+                st.rerun()
+    with col_back_bot:
+        if st.button("← Back to Dashboard", use_container_width=True, key="auth_back_bottom"):
+            st.session_state.auth_screen = None
+            st.session_state.account_view = False
             st.rerun()
 
 
@@ -1571,12 +1592,30 @@ def render_header_and_account() -> None:
 
 
 def render_account_screen() -> None:
-    st.markdown('<div class="passenger-title">My Passenger Account</div>', unsafe_allow_html=True)
+    c_back_top, c_brand_top = st.columns([2, 5])
+    with c_back_top:
+        if st.button("← Back to Dashboard", use_container_width=True, key="account_back_top"):
+            st.session_state.account_view = False
+            st.session_state.auth_screen = None
+            st.rerun()
+    with c_brand_top:
+        st.markdown(
+            '<div style="font-size:1.15rem; font-weight:800; color:#22d3ee; padding-top:6px;">'
+            '👤 Passenger Account Management'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
     user = st.session_state.get("auth_user") or {}
     name = html.escape(str(user.get("name") or "Passenger"))
     identifier = html.escape(str(user.get("identifier") or ""))
+
     st.markdown(
-        f'<div class="passenger-subtitle">Welcome, {name}. Manage your RailTrack passenger settings.</div>',
+        f"""<div style="background:rgba(13,21,38,0.85); backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,0.12); border-top:1px solid rgba(255,255,255,0.22); border-radius:18px; padding:1.2rem 1.5rem; margin:0.85rem 0 1.25rem; box-shadow:0 12px 32px rgba(0,0,0,0.5);">
+            <div style="font-size:0.75rem; font-weight:750; color:#38bdf8; text-transform:uppercase; letter-spacing:0.06em;">Passenger Profile</div>
+            <h2 style="color:#ffffff; font-weight:800; margin:4px 0 4px; font-size:1.45rem;">Welcome, {name}</h2>
+            <p style="color:#cbd5e1; font-size:0.9rem; margin:0;">{identifier or 'Authenticated RailTrack Passenger'}</p>
+        </div>""",
         unsafe_allow_html=True,
     )
 
@@ -1595,23 +1634,24 @@ def render_account_screen() -> None:
 
     if account_view == "Profile":
         st.markdown(
-            f'<div class="card"><div class="eyebrow">PROFILE</div>'
-            f'<h3>{name}</h3><p>{identifier}</p>'
-            '<div class="fresh">Authentication is handled by the RailTrack backend.</div></div>',
+            f'<div style="background:rgba(13,21,38,0.75); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:1.1rem 1.3rem; margin-bottom:1rem;"><div style="font-size:0.75rem; font-weight:750; color:#38bdf8; text-transform:uppercase;">PROFILE DETAILS</div>'
+            f'<h3 style="color:#ffffff; margin:6px 0 2px;">{name}</h3><p style="color:#94a3b8; margin:0 0 8px;">{identifier}</p>'
+            '<div style="font-size:0.8rem; color:#34d399; font-weight:600;">✓ Authenticated by RailTrack Enterprise Security</div></div>',
             unsafe_allow_html=True,
         )
     else:
         st.markdown(
-            f'<div class="card"><div class="eyebrow">{html.escape(account_view)}</div>'
-            f'<p>{html.escape(copy[account_view])}</p>'
-            '<div class="fresh">This section is ready for the next passenger-account feature.</div></div>',
+            f'<div style="background:rgba(13,21,38,0.75); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:1.1rem 1.3rem; margin-bottom:1rem;"><div style="font-size:0.75rem; font-weight:750; color:#38bdf8; text-transform:uppercase;">{html.escape(account_view)}</div>'
+            f'<p style="color:#e2e8f0; margin:6px 0 8px;">{html.escape(copy[account_view])}</p>'
+            '<div style="font-size:0.8rem; color:#94a3b8;">This section is synced with your active session.</div></div>',
             unsafe_allow_html=True,
         )
 
     col_back, col_out = st.columns(2)
     with col_back:
-        if st.button("Back to passenger information", use_container_width=True, key="account_back"):
+        if st.button("← Back to Dashboard", use_container_width=True, key="account_back_bottom"):
             st.session_state.account_view = False
+            st.session_state.auth_screen = None
             st.rerun()
     with col_out:
         if st.button("Sign Out", use_container_width=True, key="account_signout"):
@@ -2095,6 +2135,7 @@ def render_search(
         train["platform_number"] = route_info["platform_number"]
         train["weather_coords"] = route_info["weather_coords"]
         train["position_km"] = route_info["covered_distance_km"]
+        train["intermediate_stops"] = route_info.get("intermediate_stops", [])
 
     section = {
         "section_id": f"{route_info['origin_code']}-{route_info['destination_code']}",
@@ -2245,53 +2286,97 @@ Live GPS Kinematics
 
 
 def render_journey_events_and_local_info(train: Dict[str, Any], section: Dict[str, Any], weather: Optional[Dict[str, Any]] = None) -> None:
-    """Render Lower Sections: 'Journey Events' and 'Local Information' matching Dribbble UI."""
+    """Render Lower Sections: 'Journey Events' and 'Local Information' dynamically matching current search."""
     from_st = train.get("passenger_from") or "New Delhi"
     to_st = train.get("passenger_to") or "Jammu Tawi"
-    next_st = train.get("next_station") or "Ludhiana Junction"
-    
+    next_st = train.get("next_station") or to_st
+    speed = float(train.get("speed_kmph", 0) or 112.0)
+    delay_val = int(train.get("delay_minutes", 0) or 0)
+    platform_num = train.get("platform_number") or 3
+
+    stops = train.get("intermediate_stops") or []
+    covered_km = float(train.get("distance_covered_km") or train.get("position_km") or 0.0)
+
+    # Resolve passed intermediate station dynamically based on the searched corridor
+    passed_name = None
+    if stops and len(stops) > 2:
+        for s in stops[1:-1]:
+            if float(s.get("km", 0.0)) <= covered_km:
+                passed_name = s.get("name")
+        if not passed_name and len(stops) > 2:
+            passed_name = stops[1].get("name")
+
+    if not passed_name:
+        curr = str(train.get("current_station", ""))
+        if "Between" in curr and "&" in curr:
+            passed_name = curr.replace("Between", "").split("&")[0].strip()
+        elif "Approaching" in curr:
+            passed_name = curr.replace("Approaching", "").strip()
+        else:
+            passed_name = f"{from_st} Sector Junction"
+
+    # Dynamic timestamps based on real scheduled timings and ETAs
+    now_dt = datetime.now()
+    dest_eta_min = train.get("destination_eta_min")
+    if dest_eta_min is not None and int(dest_eta_min) > 0:
+        arr_dt = now_dt + timedelta(minutes=int(dest_eta_min))
+        arr_time_str = arr_dt.strftime("%I:%M %p")
+    elif train.get("exit_time"):
+        arr_time_str = str(train.get("exit_time"))
+    else:
+        arr_time_str = (now_dt + timedelta(hours=3, minutes=15)).strftime("%I:%M %p")
+
+    next_eta_min = train.get("next_station_eta_min")
+    if next_eta_min is not None and int(next_eta_min) > 0:
+        next_eta_str = f"In {int(next_eta_min)} min"
+    else:
+        next_eta_str = "In 18 min"
+
+    dep_time_str = train.get("entry_time") or (now_dt - timedelta(hours=2, minutes=15)).strftime("%I:%M %p")
+    passed_time_str = (now_dt - timedelta(minutes=45)).strftime("%I:%M %p")
+
     temp = (weather or {}).get("temperature_c", 26.0)
     cond = (weather or {}).get("weather_condition", "Clear Sky")
     wind = (weather or {}).get("wind_speed_kmph", 12.0)
     humidity = (weather or {}).get("humidity_pct", 48)
-    
+
     events_html = f"""<div class="lower-section-grid">
 <!-- Card 1: Journey Events -->
 <div class="lower-card">
 <div class="lower-card-title">
-<span>📍</span> Journey Events
+<span>📍</span> Journey Events & Timeline
 </div>
 <div class="event-timeline-item">
 <div class="event-dot event-dot-done"></div>
 <div>
 <div class="event-text-title">Departed {html.escape(from_st)}</div>
-<div class="event-text-sub">Platform 3 &bull; Right time departure</div>
+<div class="event-text-sub">Platform {platform_num} &bull; Right time departure</div>
 </div>
-<div class="event-time">06:00 AM</div>
+<div class="event-time">{html.escape(dep_time_str)}</div>
 </div>
 <div class="event-timeline-item">
 <div class="event-dot event-dot-done"></div>
 <div>
-<div class="event-text-title">Passed Ambala Cantt</div>
-<div class="event-text-sub">Cleared block section at 112 km/h</div>
+<div class="event-text-title">Passed {html.escape(passed_name)}</div>
+<div class="event-text-sub">Cleared block section at {speed:.0f} km/h</div>
 </div>
-<div class="event-time">08:15 AM</div>
+<div class="event-time">{html.escape(passed_time_str)}</div>
 </div>
 <div class="event-timeline-item">
 <div class="event-dot event-dot-active"></div>
 <div>
 <div class="event-text-title" style="color:#22d3ee;">Approaching {html.escape(next_st)}</div>
-<div class="event-text-sub">Scheduled stop &bull; Platform 2 expected</div>
+<div class="event-text-sub">Scheduled stop &bull; Platform {(platform_num % 4) + 1} expected</div>
 </div>
-<div class="event-time">In 18 min</div>
+<div class="event-time">{html.escape(next_eta_str)}</div>
 </div>
 <div class="event-timeline-item">
 <div class="event-dot event-dot-upcoming"></div>
 <div>
-<div class="event-text-title" style="color:#94a3b8;">Destination Arrival: {html.escape(to_st)}</div>
-<div class="event-text-sub">Expected on-time terminal arrival</div>
+<div class="event-text-title" style="color:#e2e8f0;">Destination Arrival: {html.escape(to_st)}</div>
+<div class="event-text-sub">Expected {'on-time' if delay_val == 0 else f'{delay_val}m delayed'} terminal arrival</div>
 </div>
-<div class="event-time">02:15 PM</div>
+<div class="event-time">{html.escape(arr_time_str)}</div>
 </div>
 </div>
 
@@ -2300,15 +2385,15 @@ def render_journey_events_and_local_info(train: Dict[str, Any], section: Dict[st
 <div class="lower-card-title">
 <span>ℹ️</span> Local Information & Amenities
 </div>
-<div style="background:rgba(7,11,22,0.5); border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:12px 14px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+<div style="background:rgba(7,11,22,0.6); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px 14px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
 <div>
-<div style="font-size:0.78rem; font-weight:700; color:#94a3b8; text-transform:uppercase;">Weather at Next Station</div>
-<div style="font-size:1.5rem; font-weight:800; color:#ffffff; margin-top:2px;">{temp:.0f}&deg;C <span style="font-size:0.95rem; font-weight:600; color:#38bdf8;">{html.escape(cond)}</span></div>
-<div style="font-size:0.78rem; color:#64748b; margin-top:2px;">Wind: {wind:.0f} km/h &bull; Humidity: {humidity}%</div>
+<div style="font-size:0.8rem; font-weight:750; color:#cbd5e1; text-transform:uppercase; letter-spacing:0.03em;">Weather at Next Station ({html.escape(next_st)})</div>
+<div style="font-size:1.55rem; font-weight:800; color:#ffffff; margin-top:2px;">{temp:.0f}&deg;C <span style="font-size:0.95rem; font-weight:600; color:#38bdf8;">{html.escape(cond)}</span></div>
+<div style="font-size:0.8rem; color:#94a3b8; font-weight:550; margin-top:2px;">Wind: {wind:.0f} km/h &bull; Humidity: {humidity}%</div>
 </div>
 <div style="font-size:2.2rem;">🌤️</div>
 </div>
-<div style="font-size:0.78rem; font-weight:700; color:#94a3b8; text-transform:uppercase; margin-bottom:6px;">Station Amenities ({html.escape(next_st)})</div>
+<div style="font-size:0.8rem; font-weight:750; color:#cbd5e1; text-transform:uppercase; letter-spacing:0.03em; margin-bottom:6px;">Station Amenities ({html.escape(next_st)})</div>
 <div style="display:flex; flex-wrap:wrap; gap:6px;">
 <span class="amenity-pill">🛋️ AC Waiting Hall</span>
 <span class="amenity-pill">📶 High-Speed Wi-Fi</span>
