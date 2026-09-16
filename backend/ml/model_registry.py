@@ -82,6 +82,26 @@ class ModelRegistry:
         self._load_registry()
         logger.info("ModelRegistry reloaded. Active models: %s", list(self._models.keys()))
 
+    def rollback_to_previous_champion(self) -> Dict[str, Any]:
+        """Roll back production champion to previously saved champion state."""
+        prev = self._comparison.get("previous_champion")
+        if not prev:
+            return {"status": "FAILED", "reason": "No previous champion recorded for rollback"}
+
+        self._comparison["selected_production_model"] = prev.get("model_name", "Gradient Boosting")
+        self._comparison["ensemble_weights"] = prev.get("weights", self.get_ensemble_weights())
+        self._comparison["rollback_timestamp"] = datetime.now(timezone.utc).isoformat()
+
+        comp_file = MODELS_DIR / "model_comparison.json"
+        comp_file.write_text(json.dumps(self._comparison, indent=2), encoding="utf-8")
+        self.reload()
+
+        return {
+            "status": "ROLLED_BACK",
+            "active_champion": self._comparison["selected_production_model"],
+            "timestamp": self._comparison["rollback_timestamp"],
+        }
+
     def get_comparison(self) -> Dict[str, Any]:
         """Return raw model evaluation comparison dictionary."""
         return self._comparison
@@ -193,3 +213,7 @@ class ModelRegistry:
 
 # Global singleton registry
 registry = ModelRegistry()
+
+
+def get_model_registry() -> ModelRegistry:
+    return registry

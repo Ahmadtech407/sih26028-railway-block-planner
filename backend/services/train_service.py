@@ -6,6 +6,7 @@ Provides live status, speed, position tracking, platform assignments, and dead-r
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any, Tuple
 import requests
+import os
 from backend.schemas.api_models import (
     TrainDetails,
     TrainPredictionResponse,
@@ -23,7 +24,8 @@ from backend.services.train_data_source import (
 )
 from backend.services import ml_prediction_service as ml
 from backend.services import supabase_train_store as supa_store
-STALE_AFTER_SECONDS = 120
+from backend.services import section_service
+STALE_AFTER_SECONDS = int(os.environ.get("TELEMETRY_STALE_SECONDS", "120"))
 INGESTED_TELEMETRY: Dict[str, Dict[str, Any]] = {}
 SIMULATOR_STARTED_AT = datetime.now(timezone.utc)
 
@@ -235,9 +237,23 @@ def _with_telemetry_fields(data: Dict[str, Any], now: datetime, source: str) -> 
     priority = int(data.get("priority", 3))
     current_delay = int(data.pop("delay_minutes", 0) or 0)
 
-    eta_minutes = calculate_eta_minutes(pos_km, speed, direction)
-    current_station = data.get("current_station") or ("Kanpur Central" if direction == TrainDirectionEnum.UP else "Prayagraj Junction")
-    next_station = data.get("next_station") or ("Prayagraj Junction" if direction == TrainDirectionEnum.UP else "Kanpur Central")
+    # Dynamic section resolution
+    sec_id = data.get("section_id")
+    sec_info = section_service.get_section_by_id(sec_id) if sec_id else None
+    start_km = float(sec_info.start_km) if sec_info else 400.0
+    end_km = float(sec_info.end_km) if sec_info else 442.5
+
+    eta_minutes = calculate_eta_minutes(pos_km, speed, direction, start_km=start_km, end_km=end_km)
+    
+    default_origin = "Kanpur Central"
+    default_dest = "Prayagraj Junction"
+    if sec_info and getattr(sec_info, "section_name", None) and " - " in sec_info.section_name:
+        parts = sec_info.section_name.split(" - ", 1)
+        default_origin = parts[0].strip()
+        default_dest = parts[1].split("(")[0].strip()
+
+    current_station = data.get("current_station") or (default_origin if direction == TrainDirectionEnum.UP else default_dest)
+    next_station = data.get("next_station") or (default_dest if direction == TrainDirectionEnum.UP else default_origin)
     data.pop("current_station", None)
     data.pop("next_station", None)
     data.pop("data_source", None)
@@ -260,7 +276,7 @@ def _with_telemetry_fields(data: Dict[str, Any], now: datetime, source: str) -> 
     )
 
     # UNIFIED DYNAMIC PREDICTION via ModelRegistry Champion (Ensemble)
-    dest_km = 442.5 if direction == TrainDirectionEnum.UP else 400.0
+    dest_km = end_km if direction == TrainDirectionEnum.UP else start_km
     dist_remaining = max(0.0, abs(dest_km - pos_km))
 
     dynamic_res = ml.predict_dynamic_eta({
@@ -272,6 +288,7 @@ def _with_telemetry_fields(data: Dict[str, Any], now: datetime, source: str) -> 
         "position_km": pos_km,
         "destination_km": dest_km,
         "distance_remaining_km": dist_remaining,
+        "section_id": sec_id,
     }, model_name="best_model")
 
     predicted_delay = int(round(dynamic_res.get("delay_estimate", current_delay)))

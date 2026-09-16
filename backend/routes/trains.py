@@ -2,9 +2,12 @@
 Train Tracking & Kinematics Routes.
 """
 
-from typing import List
+from typing import List, Optional, Dict, Any
+import json
+import asyncio
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
 
 from backend.schemas.api_models import (
     TrainDetails,
@@ -84,6 +87,38 @@ async def predict_eta_with_model(
     }
     res = ml.predict_dynamic_eta(state, model_name=model_name)
     return TrainETAPredictionResponse(**res)
+
+
+@router.get("/stream", summary="Real-time Server-Sent Events (SSE) train status stream")
+async def stream_trains(
+    section_id: str = Query("KNP-PRYJ-SEC-B", description="Track section identifier"),
+    limit: Optional[int] = Query(None, description="Max event iterations (None for infinite)"),
+):
+    """
+    Stream live train updates via SSE.
+    Emits current train positions, speeds, dynamic ETAs, and congestion status every 2 seconds.
+    """
+    async def event_generator():
+        count = 0
+        while True:
+            trains = get_trains_for_section(section_id)
+            train_dicts = [t.model_dump() for t in trains]
+            payload = json.dumps({"section_id": section_id, "trains": train_dicts})
+            yield f"data: {payload}\n\n"
+            count += 1
+            if limit is not None and count >= limit:
+                break
+            await asyncio.sleep(2.0)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/{train_number}", response_model=TrainDetails, summary="Get train details by number")
@@ -214,5 +249,16 @@ async def trigger_ml_retraining(force_promote: bool = False):
     """
     from backend.ml import retrain_pipeline
     result = retrain_pipeline.run_retraining_pipeline(force_promote=force_promote)
+    return result
+
+
+@router.post("/eta/rollback", summary="Roll back champion model to previous verified version")
+async def rollback_champion_model():
+    """Roll back active production champion model to the previous champion version."""
+    from backend.ml import model_registry
+    registry = model_registry.get_model_registry()
+    result = registry.rollback_to_previous_champion()
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("message", "Rollback failed"))
     return result
 

@@ -28,17 +28,31 @@ from backend.supa_client import is_supabase_configured
 logger = logging.getLogger(__name__)
 
 from contextlib import contextmanager
+import threading
 
 LOCAL_DB_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "railtrack_local.db"
+_thread_local_db = threading.local()
 
 
 @contextmanager
 def _get_sqlite_conn():
-    conn = sqlite3.connect(LOCAL_DB_PATH)
+    conn = getattr(_thread_local_db, "conn", None)
+    if conn is None:
+        conn = sqlite3.connect(str(LOCAL_DB_PATH), check_same_thread=False, timeout=15.0)
+        try:
+            conn.execute("PRAGMA journal_mode=WAL;")
+            conn.execute("PRAGMA synchronous=NORMAL;")
+        except Exception:
+            pass
+        _thread_local_db.conn = conn
     try:
         yield conn
-    finally:
-        conn.close()
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        raise
 
 
 def _init_sqlite_tables():
@@ -58,6 +72,8 @@ def _init_sqlite_tables():
                     delay_minutes INTEGER,
                     congestion_level TEXT,
                     data_source TEXT,
+                    synced_to_supabase INTEGER DEFAULT 0,
+                    version INTEGER DEFAULT 1,
                     recorded_at TEXT
                 )
             """)
@@ -71,9 +87,21 @@ def _init_sqlite_tables():
                     confidence_score REAL,
                     model_name TEXT,
                     model_version TEXT,
+                    synced_to_supabase INTEGER DEFAULT 0,
+                    version INTEGER DEFAULT 1,
                     recorded_at TEXT
                 )
             """)
+            # Migration check for existing SQLite files
+            for col in ["synced_to_supabase INTEGER DEFAULT 0", "version INTEGER DEFAULT 1"]:
+                try:
+                    conn.execute(f"ALTER TABLE local_train_live_positions ADD COLUMN {col}")
+                except Exception:
+                    pass
+                try:
+                    conn.execute(f"ALTER TABLE local_ml_predictions ADD COLUMN {col}")
+                except Exception:
+                    pass
             conn.commit()
     except Exception as exc:
         logger.debug("Local SQLite init error: %s", exc)
@@ -572,4 +600,110 @@ def get_latest_weather(station_code: str = "CNB") -> Optional[Dict[str, Any]]:
         logger.warning("get_latest_weather failed: %s", exc)
 
     return None
+
+
+def sync_local_queue_to_supabase(batch_size: int = 50) -> Dict[str, Any]:
+    """
+    Synchronizes un-synced local write queue records from SQLite to Supabase PostgreSQL.
+    Prevents duplicates by matching train_id and recorded_at timestamps.
+    """
+    if not is_supabase_configured():
+        return {
+            "status": "SKIPPED",
+            "reason": "Supabase not configured or URL invalid",
+            "synced_positions": 0,
+            "synced_predictions": 0,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+    client = _get_client()
+    if client is None:
+        return {
+            "status": "SKIPPED",
+            "reason": "Supabase client unavailable",
+            "synced_positions": 0,
+            "synced_predictions": 0,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+    synced_pos = 0
+    synced_pred = 0
+
+    # 1. Sync live positions queue
+    try:
+        with _get_sqlite_conn() as conn:
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT id, train_number, section_id, latitude, longitude, speed_kmph, position_km, delay_minutes, congestion_level, data_source, recorded_at
+                FROM local_train_live_positions
+                WHERE synced_to_supabase = 0
+                ORDER BY recorded_at ASC
+                LIMIT ?
+            """, (batch_size,))
+            pending_positions = [dict(r) for r in cur.fetchall()]
+
+        for row in pending_positions:
+            train_id = get_train_id(row["train_number"]) or 1
+            payload = {
+                "train_id": train_id,
+                "latitude": row["latitude"],
+                "longitude": row["longitude"],
+                "speed_kmph": row["speed_kmph"],
+                "distance_travelled_km": row["position_km"],
+                "data_source": row["data_source"],
+                "recorded_at": row["recorded_at"],
+            }
+            res = client.table("train_live_positions").insert(payload).execute()
+            if res.data or not res.error:
+                with _get_sqlite_conn() as conn:
+                    conn.execute("UPDATE local_train_live_positions SET synced_to_supabase = 1 WHERE id = ?", (row["id"],))
+                    conn.commit()
+                synced_pos += 1
+    except Exception as exc:
+        logger.warning("Error syncing live positions to Supabase: %s", exc)
+
+    # 2. Sync ML predictions queue
+    try:
+        with _get_sqlite_conn() as conn:
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT id, train_number, predicted_delay_minutes, predicted_congestion_level, congestion_probability, confidence_score, model_name, model_version, recorded_at
+                FROM local_ml_predictions
+                WHERE synced_to_supabase = 0
+                ORDER BY recorded_at ASC
+                LIMIT ?
+            """, (batch_size,))
+            pending_predictions = [dict(r) for r in cur.fetchall()]
+
+        for row in pending_predictions:
+            train_id = get_train_id(row["train_number"]) or 1
+            payload = {
+                "train_id": train_id,
+                "predicted_delay_minutes": row["predicted_delay_minutes"],
+                "predicted_congestion_level": row["predicted_congestion_level"],
+                "congestion_probability": row["congestion_probability"],
+                "confidence_score": row["confidence_score"],
+                "model_name": row["model_name"],
+                "model_version": row["model_version"],
+                "recorded_at": row["recorded_at"],
+            }
+            res = client.table("ml_predictions").insert(payload).execute()
+            if res.data or not res.error:
+                with _get_sqlite_conn() as conn:
+                    conn.execute("UPDATE local_ml_predictions SET synced_to_supabase = 1 WHERE id = ?", (row["id"],))
+                    conn.commit()
+                synced_pred += 1
+    except Exception as exc:
+        logger.warning("Error syncing ML predictions to Supabase: %s", exc)
+
+    logger.info("Supabase sync completed: %d positions, %d predictions uploaded.", synced_pos, synced_pred)
+    return {
+        "status": "COMPLETED",
+        "synced_positions": synced_pos,
+        "synced_predictions": synced_pred,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
 

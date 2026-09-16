@@ -7,11 +7,14 @@ Indian Railways AI Section Controller & Block Planner Backend (SIH26028).
 import asyncio
 import logging
 import os
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from backend.routes.sections import router as sections_router
 from backend.routes.trains import router as trains_router
@@ -50,10 +53,24 @@ async def telemetry_broadcast_loop():
         await asyncio.sleep(5)
 
 
+async def background_cloud_sync_loop():
+    """Periodically sync offline SQLite records to Supabase in background."""
+    from backend.services import supabase_train_store as supa_store
+    while True:
+        try:
+            await asyncio.sleep(60)
+            await asyncio.to_thread(supa_store.sync_local_queue_to_supabase, 25)
+        except asyncio.CancelledError:
+            break
+        except Exception as exc:
+            logger.debug("Background cloud sync error: %s", exc)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_database()
     telemetry_task = asyncio.create_task(telemetry_broadcast_loop())
+    sync_task = asyncio.create_task(background_cloud_sync_loop())
 
     print("=" * 70)
     print("[IR-SIH] Indian Railways AI Section Controller Backend API")
@@ -64,9 +81,10 @@ async def lifespan(app: FastAPI):
     yield
 
     telemetry_task.cancel()
+    sync_task.cancel()
     try:
-        await telemetry_task
-    except asyncio.CancelledError:
+        await asyncio.gather(telemetry_task, sync_task, return_exceptions=True)
+    except Exception:
         pass
     print("Shutting down Railway Backend...")
 
@@ -106,6 +124,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+class ResponseTimeMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        start = time.perf_counter()
+        response = await call_next(request)
+        duration_ms = (time.perf_counter() - start) * 1000.0
+        response.headers["X-Response-Time-Ms"] = f"{duration_ms:.2f}"
+        return response
+
+app.add_middleware(ResponseTimeMiddleware)
 
 
 # -------------------------------------------------------------------
@@ -191,6 +219,49 @@ async def system_operational_readiness():
     """Returns official operational posture, advisory DSS classification, and safety disclaimers."""
     from backend.routes.trains import operational_readiness
     return await operational_readiness()
+
+
+@app.get("/ready", summary="Deployment & Kubernetes Readiness Probe")
+async def readiness_probe():
+    """
+    Evaluates whether the application is fully initialized and ready to accept live traffic.
+    Checks SQLite database connectivity, ML model availability, and subsystem health.
+    """
+    from backend.services.supabase_train_store import _get_sqlite_conn
+    from backend.services.ml_prediction_service import get_model_info
+
+    db_ok = False
+    try:
+        with _get_sqlite_conn() as conn:
+            conn.execute("SELECT 1")
+        db_ok = True
+    except Exception:
+        db_ok = False
+
+    ml_info = get_model_info()
+    ml_ok = ml_info.get("status") in ("LOADED", "OPERATIONAL") or bool(ml_info.get("model_version"))
+
+    ready = db_ok and ml_ok
+    status_code = 200 if ready else 503
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "status": "READY" if ready else "NOT_READY",
+            "database": "CONNECTED" if db_ok else "DISCONNECTED",
+            "ml_engine": "READY" if ml_ok else "INITIALIZING",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+
+
+@app.post("/api/database/sync", summary="Trigger offline SQLite to Supabase cloud sync")
+async def trigger_cloud_sync(batch_size: int = 50):
+    """
+    Synchronizes queued local telemetry observations and predictions to Supabase.
+    Can be triggered by external cron, deployment webhooks, or background tasks.
+    """
+    from backend.services import supabase_train_store as supa_store
+    return supa_store.sync_local_queue_to_supabase(batch_size=batch_size)
 
 
 # -------------------------------------------------------------------

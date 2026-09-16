@@ -31,6 +31,8 @@ data/datasets/raw/
 data/models/*.pkl
 data/models/*.joblib
 *.db
+*.db-shm
+*.db-wal
 
 # Cloudflare
 cloudflared.exe

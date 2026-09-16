@@ -71,6 +71,8 @@ class SectionWeather(BaseModel):
     humidity_pct: Optional[float] = Field(None, description="Relative humidity percentage (%)")
     weather_icon: Optional[str] = Field("🌤️", description="WMO weather condition icon")
     station_name: Optional[str] = Field("Kanpur Central - Prayagraj", description="Station or region name")
+    weather_age: Optional[int] = Field(0, description="Age of weather observation in seconds")
+    weather_confidence: Optional[float] = Field(0.95, description="Observation reliability score 0.0 to 1.0")
 
 
 # ============================================================

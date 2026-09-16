@@ -946,18 +946,30 @@ def fetch_sections() -> List[Dict[str, Any]]:
     return get_json("/api/sections") or []
 
 
-@st.cache_data(ttl=20, show_spinner=False)
+@st.cache_data(ttl=10, show_spinner=False)
 def fetch_trains(section_id: str) -> List[Dict[str, Any]]:
+    # 0. Session-state cache check for instant rerun response
+    if "train_feed_cache" not in st.session_state:
+        st.session_state["train_feed_cache"] = {}
+
     # 1. Attempt to fetch from active FastAPI backend
     data = get_json("/api/trains", {"section_id": section_id})
     if data:
+        st.session_state["train_feed_cache"][section_id] = data
         return data
+
+    # 1b. Fallback to cached session data if backend is momentarily slow
+    if section_id in st.session_state["train_feed_cache"]:
+        return st.session_state["train_feed_cache"][section_id]
+
     # 2. Direct service integration fallback (Govt of India feed + simulation)
     try:
         from backend.services.train_service import get_trains_for_section
         trains = get_trains_for_section(section_id)
         if trains:
-            return [t.model_dump() for t in trains]
+            result = [t.model_dump() for t in trains]
+            st.session_state["train_feed_cache"][section_id] = result
+            return result
     except Exception:
         pass
     return []
@@ -972,7 +984,7 @@ def fetch_platforms(section_id: str) -> Dict[str, Any]:
 def fetch_weather(station_or_section: str, coords: Optional[tuple[float, float, str]] = None) -> Dict[str, Any]:
     # 1. Attempt to fetch from active FastAPI backend
     data = get_json(f"/api/weather/{station_or_section}")
-    if data and data.get("weather_source") in ("OPEN_METEO_API", "CALIBRATED_CLIMATE_MODEL", "SIMULATED_DEMO_SOURCE"):
+    if data and data.get("weather_source"):
         return data
 
     # 2. Direct service integration (guarantees real live Open-Meteo observations even in standalone mode)

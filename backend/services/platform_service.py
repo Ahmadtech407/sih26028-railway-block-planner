@@ -88,4 +88,46 @@ def get_platform_conflict_response(section_id: str, train_number: str | None = N
         "conflicts": conflicts,
         "available_platforms": [number for number in range(1, 10) if number not in assigned],
         "status": "PLATFORM_CONFLICT" if conflicts else "PLATFORM_CLEAR",
-    }
+    }
+
+
+# Station & Train Type Dwell Time Constraints (min, max in minutes)
+DWELL_TIME_RULES: dict[str, tuple[int, int]] = {
+    # Major Terminus / Junctions
+    "CNB": (10, 25),
+    "PRYJ": (10, 25),
+    "NDLS": (15, 30),
+    "LKO": (10, 25),
+    "HWH": (15, 30),
+    "CSMT": (15, 30),
+    # Waystations & Halts
+    "FTP": (2, 5),
+    "SRO": (2, 4),
+    "TDL": (2, 5),
+    "ETW": (2, 5),
+    "ALJN": (2, 5),
+}
+
+TRAIN_TYPE_DWELL_MODIFIERS: dict[str, tuple[int, int]] = {
+    "VANDE_BHARAT": (2, 5),
+    "RAJDHANI": (3, 10),
+    "SUPERFAST": (5, 15),
+    "EXPRESS": (5, 20),
+    "PASSENGER": (10, 25),
+    "FREIGHT": (15, 45),
+}
+
+
+def get_platform_dwell_bounds(station_code: str, train_type: str = "EXPRESS") -> tuple[int, int]:
+    """Retrieve operational dwell time bounds [min_dwell, max_dwell] in minutes."""
+    stn_bounds = DWELL_TIME_RULES.get(station_code.upper(), (5, 15))
+    type_bounds = TRAIN_TYPE_DWELL_MODIFIERS.get(train_type.upper(), (5, 15))
+    min_dwell = min(stn_bounds[0], type_bounds[0])
+    max_dwell = max(min_dwell + 2, max(stn_bounds[1], type_bounds[1]))
+    return min_dwell, max_dwell
+
+
+def bound_predicted_dwell_time(predicted_dwell: float, station_code: str, train_type: str = "EXPRESS") -> int:
+    """Enforce operational station and train type constraints on ML dwell prediction."""
+    min_d, max_d = get_platform_dwell_bounds(station_code, train_type)
+    return max(min_d, min(max_d, int(round(predicted_dwell))))

@@ -12,6 +12,7 @@ Automated training and evaluation of candidate regression models:
 
 import json
 import logging
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any, Tuple, Optional, List
@@ -78,15 +79,20 @@ def fetch_retraining_data() -> pd.DataFrame:
     return base_df
 
 
-def validate_dataset(df: pd.DataFrame, min_samples: int = 50) -> Tuple[bool, str]:
+DEFAULT_MIN_RETRAINING_SAMPLES = int(os.getenv("MIN_RETRAINING_SAMPLES", "200"))
+
+
+def validate_dataset(df: pd.DataFrame, min_samples: Optional[int] = None) -> Tuple[bool, str]:
     """
     Validate training dataset integrity before initiating candidate model training.
+    Enforces configurable minimum sample threshold, absence of nulls, outlier filtering, and distribution checks.
     """
+    threshold = min_samples if min_samples is not None else DEFAULT_MIN_RETRAINING_SAMPLES
     if df is None or df.empty:
         return False, "Dataset is empty or None."
 
-    if len(df) < min_samples:
-        return False, f"Dataset has only {len(df)} samples; minimum required is {min_samples}."
+    if len(df) < threshold:
+        return False, f"Dataset has only {len(df)} samples; minimum required is {threshold}."
 
     target_col = "target_remaining_travel_time_minutes"
     if target_col not in df.columns:
@@ -98,9 +104,20 @@ def validate_dataset(df: pd.DataFrame, min_samples: int = 50) -> Tuple[bool, str
     if (df[target_col] <= 0).any():
         return False, "Target column contains zero or negative travel times."
 
+    # Outlier check on travel times
+    if (df[target_col] > 10000.0).any():
+        return False, "Target column contains extreme unrealistic travel time outliers (>10000 min)."
+
+    # Missing value tolerance (< 10%)
     for feat in FEATURES_NUM:
-        if feat in df.columns and df[feat].isnull().sum() > len(df) * 0.2:
-            return False, f"Feature '{feat}' has more than 20% missing values."
+        if feat in df.columns and df[feat].isnull().sum() > len(df) * 0.10:
+            return False, f"Feature '{feat}' has more than 10% missing values."
+
+    # Data drift check: speeds must be within realistic railway bounds [10, 200 km/h]
+    if "speed_kmph" in df.columns:
+        mean_speed = df["speed_kmph"].mean()
+        if mean_speed < 10.0 or mean_speed > 200.0:
+            return False, f"Feature 'speed_kmph' shows distribution drift (mean: {mean_speed:.1f} km/h)."
 
     return True, "Dataset passed validation checks."
 
@@ -187,12 +204,21 @@ def train_and_evaluate_candidates(df: pd.DataFrame) -> Tuple[Dict[str, Pipeline]
     ensemble_improved = ens_mae < best_single_mae
     selected_candidate_champion = "Ensemble" if ensemble_improved else best_single_name
 
+    current_comp = registry.get_comparison()
+    prev_champ_meta = {
+        "model_name": current_comp.get("selected_production_model", "Ensemble"),
+        "weights": current_comp.get("ensemble_weights", {}),
+        "mae": current_comp.get("models", {}).get(current_comp.get("selected_production_model", "Ensemble"), {}).get("MAE", 2.55),
+        "timestamp": current_comp.get("evaluation_timestamp"),
+    }
+
     summary = {
         "models": metrics_report,
         "best_individual_model": best_single_name,
         "ensemble_weights": ensemble_weights,
         "ensemble_improved": ensemble_improved,
         "selected_production_model": selected_candidate_champion,
+        "previous_champion": prev_champ_meta,
         "target_variable": "target_remaining_travel_time_minutes",
         "evaluation_timestamp": datetime.now(timezone.utc).isoformat(),
         "train_samples": len(X_train_full),

@@ -40,12 +40,22 @@ class SimulatorDataSource(TrainDataSource):
             train["speed_kmph"] * elapsed_seconds / 3600.0
         )
 
+        # Dynamic section boundary resolution
+        sec_id = train.get("section_id", "KNP-PRYJ-SEC-B")
+        try:
+            from backend.services.section_service import SECTION_DATABASE
+            sec_meta = SECTION_DATABASE.get(sec_id, {})
+            start_bound = float(sec_meta.get("start_km", 400.0))
+            end_bound = float(sec_meta.get("end_km", 442.5))
+        except Exception:
+            start_bound, end_bound = 400.0, 442.5
+
         if direction == TrainDirectionEnum.UP:
             position = train["position_km"] + distance
         else:
             position = train["position_km"] - distance
 
-        position = max(400.0, min(442.5, position))
+        position = max(start_bound, min(end_bound, position))
 
         return {
             "train_number": train_number,
@@ -54,8 +64,9 @@ class SimulatorDataSource(TrainDataSource):
             "speed_kmph": train.get("speed_kmph", 0),
             "direction": direction,
             "position_km": position,
-            "section_id": train.get("section_id"),
+            "section_id": sec_id,
             "telemetry_timestamp": now.isoformat(),
+            "data_source": "SIMULATED",
         }
 
 
@@ -75,7 +86,27 @@ class GovtRailwayDataSource(TrainDataSource):
         # 1. Attempt to fetch real running data from Government of India feed
         live_govt_data = govt_railway_service.fetch_live_train_status(train_number)
         if live_govt_data:
+            live_govt_data["data_source"] = live_govt_data.get("data_source") or "GOVT_OF_INDIA_CRIS"
             return live_govt_data
 
         # 2. Fall back to calibrated kinematic simulation
-        return self._simulator.get_live_position(train_number)
+        sim_data = self._simulator.get_live_position(train_number)
+        if sim_data:
+            sim_data["data_source"] = "SIMULATED"
+        return sim_data
+
+
+# Aliases for provider architecture specification
+TrainDataProvider = TrainDataSource
+SimulationProvider = SimulatorDataSource
+RealTelemetryProvider = GovtRailwayDataSource
+
+
+def get_train_data_source() -> TrainDataSource:
+    """Factory returning configured railway telemetry provider."""
+    import os
+    mode = os.getenv("RAILWAY_DATA_MODE", "AUTO").upper()
+    if mode == "SIMULATION":
+        return SimulatorDataSource()
+    return GovtRailwayDataSource()
+

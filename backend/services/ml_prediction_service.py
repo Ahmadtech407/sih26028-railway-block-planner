@@ -348,14 +348,17 @@ def predict_dynamic_eta(train_state: Dict[str, Any], model_name: str = "best_mod
     gradient_pct = float(train_state.get("track_gradient_pct") or 0.0)
     tsr_limit = train_state.get("speed_restriction_kmph")
     data_age = float(train_state.get("data_age_seconds", 0.0) or 0.0)
+    section_id = str(train_state.get("section_id") or "KNP-PRYJ-SEC-B")
+    train_type = str(train_state.get("train_type") or ("SUPERFAST" if priority <= 2 else "EXPRESS"))
+
+    # Resolve authoritative dynamic speed limit
+    from backend.services.section_service import get_effective_speed_limit
+    effective_speed_limit = get_effective_speed_limit(section_id, train_type, weather, tsr_limit)
 
     # Rule 2: Sudden stop or unexpected slowdown
     is_stopped = speed < 5.0
     effective_speed = max(25.0, speed) if not is_stopped else 40.0  # nominal crawl estimate for recovery
-
-    # Apply temporary speed restriction if active on block
-    if tsr_limit is not None and float(tsr_limit) > 0:
-        effective_speed = min(effective_speed, float(tsr_limit))
+    effective_speed = min(effective_speed, effective_speed_limit)
 
     # Apply Indian Railways winter fog visibility speed cap (75 km/h)
     w_upper = weather.upper()
@@ -375,8 +378,28 @@ def predict_dynamic_eta(train_state: Dict[str, Any], model_name: str = "best_mod
     # Stop penalty: if train is stopped unexpectedly, add dwell delay
     stop_penalty = 12 if is_stopped else 0
 
+    # Disruption Matrix Impact
+    from backend.services.disruption_service import evaluate_disruption_matrix
+    disruption_impact = evaluate_disruption_matrix(
+        section_id=section_id,
+        weather_risk=weather,
+        congestion_level=congestion,
+        preceding_delay_min=curr_delay,
+    )
+
+    # Telemetry freshness scoring
+    import os
+    stale_thresh = float(os.getenv("TELEMETRY_STALE_SECONDS", 120.0))
+    freshness_score = max(0.05, round(1.0 - (data_age / stale_thresh), 2)) if stale_thresh > 0 else 1.0
+
+    # If telemetry is severely expired (> 300s), refuse nominal ML and fall back to safe kinematics
+    is_expired = data_age > 300.0
+
     # ML Multi-model prediction via Registry
     try:
+        if is_expired:
+            raise ValueError("Telemetry is older than 300 seconds; forcing fallback estimation.")
+
         state_for_features = {
             "train_number": train_id,
             "priority": priority,
@@ -401,37 +424,42 @@ def predict_dynamic_eta(train_state: Dict[str, Any], model_name: str = "best_mod
         model_name_used = model_used
         confidence = 0.95
     except Exception as exc:
-        logger.warning("Dynamic ETA ML error for %s: %s. Using fallback.", train_id, exc)
+        logger.debug("Dynamic ETA ML fallback for %s: %s", train_id, exc)
         total_remaining_min = max(0, int(round(kinematic_travel_min))) + curr_delay + stop_penalty
         predicted_delay = curr_delay + stop_penalty
         model_name_used = "PHYSICS_FALLBACK"
         confidence = 0.70
         breakdown = {}
 
+    # Apply disruption matrix multiplier
+    if disruption_impact.get("delay_multiplier", 1.0) > 1.0:
+        total_remaining_min = int(round(total_remaining_min * disruption_impact["delay_multiplier"]))
+
     if total_remaining_min < 0: total_remaining_min = 0
     if predicted_delay < 0: predicted_delay = 0
 
-    has_disruption = (
-        train_state.get("ohe_failure", False) or 
-        train_state.get("track_blockage", False) or 
-        train_state.get("signal_failure", False)
-    )
-    if has_disruption and model_name_used != "PHYSICS_FALLBACK":
-        total_remaining_min = int(round(total_remaining_min * 1.3))
-
     # Telemetry blackout / sensor degradation decay
     if data_age > 60.0:
-        decay = min(0.45, (data_age - 60.0) * 0.0025)
-        confidence = max(0.40, round(confidence - decay, 2))
+        decay = min(0.55, (data_age - 60.0) * 0.0025)
+        confidence = max(0.35, round(confidence - decay, 2))
 
     # ETA = current_time + predicted_remaining_time
     eta_dt = now + timedelta(minutes=total_remaining_min)
     predicted_arrival_str = eta_dt.strftime("%H:%M")
 
     # Status determination
+    if is_expired:
+        telem_status = "EXPIRED_TELEMETRY"
+    elif data_age > stale_thresh:
+        telem_status = "STALE_TELEMETRY"
+    else:
+        telem_status = "REAL_TIME"
+
     if is_stopped:
         status = "STOPPED"
-    elif data_age > 120.0:
+    elif is_expired:
+        status = "EXPIRED_TELEMETRY"
+    elif data_age > stale_thresh:
         status = "DEGRADED_TELEMETRY"
     elif predicted_delay > 15:
         status = "DELAYED"
@@ -450,6 +478,10 @@ def predict_dynamic_eta(train_state: Dict[str, Any], model_name: str = "best_mod
         "delay_estimate": predicted_delay,
         "confidence": confidence,
         "prediction_status": status,
+        "telemetry_status": telem_status,
+        "freshness_score": freshness_score,
+        "effective_speed_limit_kmph": effective_speed_limit,
+        "disruption_impact": disruption_impact,
         "model_used": model_name_used,
         "model_predictions": breakdown,
         "prediction_method": "ML_MULTI_MODEL" if model_name_used != "PHYSICS_FALLBACK" else "PHYSICS_FALLBACK",

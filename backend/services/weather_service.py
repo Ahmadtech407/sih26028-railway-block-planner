@@ -224,7 +224,40 @@ def get_simulated_weather(
         humidity_pct=round(65.0 - 5.0 * math.sin(t / 360.0), 1),
         weather_icon="☀️" if "Clear" in condition else ("🌧️" if "Rain" in condition else "⛅"),
         station_name=station_display,
+        weather_age=0,
+        weather_confidence=0.85,
     )
+
+
+def _try_fetch_openweathermap(lat: float, lon: float) -> Optional[Dict[str, Any]]:
+    """Attempt query to OpenWeatherMap API if API key is configured."""
+    api_key = os.getenv("OPENWEATHER_API_KEY", "").strip()
+    if not api_key:
+        return None
+    try:
+        url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric"
+        res = requests.get(url, timeout=2.5)
+        if res.status_code == 200:
+            data = res.json()
+            main = data.get("main", {})
+            wind = data.get("wind", {})
+            weather_list = data.get("weather", [{}])
+            rain = data.get("rain", {})
+            rain_mm = float(rain.get("1h", 0.0)) if isinstance(rain, dict) else 0.0
+            cond = weather_list[0].get("main", "Clear") if weather_list else "Clear"
+            return {
+                "temperature_c": float(main.get("temp", 28.0)),
+                "humidity_pct": float(main.get("humidity", 65.0)),
+                "wind_speed_kmph": round(float(wind.get("speed", 3.5)) * 3.6, 1),
+                "visibility_km": round(float(data.get("visibility", 10000)) / 1000.0, 1),
+                "condition": cond,
+                "icon": "🌧️" if "Rain" in cond else ("☁️" if "Cloud" in cond else "☀️"),
+                "rain_mm": rain_mm,
+                "weather_source": "OPENWEATHERMAP",
+            }
+    except Exception as exc:
+        logger.debug("OpenWeatherMap request failed: %s", exc)
+    return None
 
 
 def get_section_weather(
@@ -244,8 +277,14 @@ def get_section_weather(
     now_dt = datetime.now()
     if cache_key in _WEATHER_CACHE:
         entry = _WEATHER_CACHE[cache_key]
-        if (now_dt - entry["cached_at"]).total_seconds() < WEATHER_CACHE_TTL_SECONDS:
-            return entry["weather"]
+        age_sec = int((now_dt - entry["cached_at"]).total_seconds())
+        if age_sec < WEATHER_CACHE_TTL_SECONDS:
+            cached_w = entry["weather"].model_copy(update={
+                "weather_age": age_sec,
+                "weather_source": "CACHED_OBSERVATION",
+                "weather_confidence": max(0.70, round(0.95 - (age_sec / 1200.0), 2)),
+            })
+            return cached_w
 
     if section_id in SECTION_COORDINATES:
         coords = SECTION_COORDINATES[section_id]
@@ -261,7 +300,50 @@ def get_section_weather(
             coords = DEFAULT_COORDINATES
     lat, lon, station_name = coords
 
-    # Attempt to query Open-Meteo free API
+    # 1. Check OpenWeatherMap if API key is provided
+    owm_data = _try_fetch_openweathermap(lat, lon)
+    if owm_data:
+        temp = owm_data["temperature_c"]
+        humidity = owm_data["humidity_pct"]
+        wind_speed = owm_data["wind_speed_kmph"]
+        visibility_km = owm_data["visibility_km"]
+        rain_intensity = owm_data["rain_mm"]
+        condition = owm_data["condition"]
+        icon = owm_data["icon"]
+        rain_prob = 80 if rain_intensity > 5.0 else (40 if rain_intensity > 0.5 else 15)
+        risk, score, reason = calculate_weather_risk_score(
+            rain_prob=rain_prob,
+            rain_intensity=rain_intensity,
+            wind_speed=wind_speed,
+            visibility_km=visibility_km,
+            work_type=work_type,
+        )
+        res_weather = SectionWeather(
+            section_id=section_id,
+            temperature_c=temp,
+            rain_probability_pct=rain_prob,
+            rainfall_intensity_mmh=rain_intensity,
+            wind_speed_kmph=wind_speed,
+            visibility_km=visibility_km,
+            weather_condition=condition,
+            weather_risk=risk,
+            weather_score=score,
+            weather_reason=reason,
+            weather_source="OPENWEATHERMAP_API",
+            air_quality_index=75,
+            air_quality_label="Moderate",
+            observed_at=datetime.now().isoformat(),
+            forecast=[],
+            humidity_pct=humidity,
+            weather_icon=icon,
+            station_name=station_name,
+            weather_age=0,
+            weather_confidence=0.98,
+        )
+        _WEATHER_CACHE[cache_key] = {"cached_at": datetime.now(), "weather": res_weather}
+        return res_weather
+
+    # 2. Attempt to query Open-Meteo free API
     try:
         url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,visibility&hourly=precipitation_probability,temperature_2m,wind_speed_10m,visibility,weather_code&forecast_days=1&timezone=auto"
         res = requests.get(url, timeout=2.5)
@@ -370,6 +452,8 @@ def get_section_weather(
                 humidity_pct=humidity,
                 weather_icon=icon,
                 station_name=station_name,
+                weather_age=0,
+                weather_confidence=0.95,
             )
             _WEATHER_CACHE[cache_key] = {"cached_at": datetime.now(), "weather": res_weather}
             return res_weather
