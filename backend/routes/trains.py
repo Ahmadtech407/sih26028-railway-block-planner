@@ -203,3 +203,16 @@ async def get_live_train_status(train_number: str):
             raise HTTPException(status_code=404, detail=f"Live running status for train '{train_number}' not found.")
         return train
     return status
+
+
+@router.post("/eta/retrain", summary="Trigger closed-loop candidate model retraining and champion gatekeeper")
+async def trigger_ml_retraining(force_promote: bool = False):
+    """
+    Executes automated candidate model training, 5-fold cross-validation,
+    SLSQP ensemble optimization, and champion gatekeeping.
+    Only strictly superior candidate models are promoted to production.
+    """
+    from backend.ml import retrain_pipeline
+    result = retrain_pipeline.run_retraining_pipeline(force_promote=force_promote)
+    return result
+

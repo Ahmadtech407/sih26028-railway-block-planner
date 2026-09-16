@@ -112,6 +112,8 @@ class TrainDetails(BaseModel):
     # ML Prediction fields
     congestion_level: Optional[str] = Field(None, description="Predicted crowding: LOW / MEDIUM / HIGH")
     predicted_delay_minutes: Optional[int] = Field(None, description="ML-predicted delay in minutes")
+    predicted_remaining_travel_time: Optional[int] = Field(None, description="ML-predicted remaining travel time in minutes")
+    model_used: Optional[str] = Field("Ensemble", description="Model used for dynamic ETA prediction")
     delay_minutes: Optional[int] = Field(0, description="Current reported delay in minutes")
     delay_reason: Optional[str] = Field(None, description="Human-readable delay cause")
 

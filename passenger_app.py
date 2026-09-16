@@ -1248,13 +1248,43 @@ def freshness_text(train: Dict[str, Any]) -> str:
 
 
 def destination_eta_minutes(train: Dict[str, Any], section: Dict[str, Any]) -> Optional[int]:
+    """
+    Calculate dynamic destination ETA in minutes using the production ML Ensemble champion.
+    
+    1. Primary: Use precomputed `predicted_remaining_travel_time` from TrainDetails if present.
+    2. Secondary: Fetch dynamic ML ETA from `/api/trains/{train_number}/eta` and cache.
+    3. Fallback: Calibrated kinematic calculation accounting for current delay.
+    """
+    # 1. Primary: Use precomputed ML travel time from train feed
+    ml_eta = train.get("predicted_remaining_travel_time")
+    if ml_eta is not None and isinstance(ml_eta, (int, float)) and ml_eta >= 0:
+        return int(round(ml_eta))
+
+    # 2. Secondary: Query backend dynamic ML ETA endpoint if train_number exists
+    train_num = train.get("train_number") or train.get("train_no") or train.get("number")
+    if train_num:
+        try:
+            eta_data = get_json(f"/api/trains/{train_num}/eta")
+            if eta_data and isinstance(eta_data, dict):
+                rem_time = eta_data.get("predicted_remaining_travel_time")
+                if rem_time is not None and rem_time >= 0:
+                    train["predicted_remaining_travel_time"] = rem_time
+                    train["model_used"] = eta_data.get("model_used", "Ensemble")
+                    return int(round(rem_time))
+        except Exception:
+            pass
+
+    # 3. Fallback: Calibrated kinematic calculation (distance / speed * 60 + delay)
     speed = float(train.get("speed_kmph", 0) or 0)
     if speed <= 0:
         return None
     position = live_track_position(train, section)
     direction = str(train.get("direction", "UP"))
     destination = float(section.get("start_km", position)) if direction == "DOWN" else float(section.get("end_km", position))
-    return max(0, round(abs(destination - position) / speed * 60))
+    dist = abs(destination - position)
+    current_delay = float(train.get("delay_minutes", 0) or 0)
+    kinematic_eta = (dist / speed * 60.0) + current_delay
+    return max(0, round(kinematic_eta))
 
 
 def live_track_position(train: Dict[str, Any], section: Dict[str, Any]) -> float:

@@ -23,6 +23,38 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SECRET_KEY = os.getenv("SUPABASE_SECRET_KEY")
 
 
+def is_supabase_configured() -> bool:
+    """Return True if Supabase URL and Key are configured with a valid HTTP/HTTPS URL."""
+    url = (os.getenv("SUPABASE_URL") or "").strip()
+    key = (os.getenv("SUPABASE_SECRET_KEY") or "").strip()
+    return bool(url.startswith(("http://", "https://")) and key)
+
+
+import threading
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+_SESSION_LOCAL = threading.local()
+
+
+def _get_http_session() -> requests.Session:
+    """Return a thread-local requests.Session configured with HTTP keep-alive and retry adapter."""
+    if not hasattr(_SESSION_LOCAL, "session"):
+        session = requests.Session()
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=0.3,
+            status_forcelist=[500, 502, 503, 504],
+            allowed_methods=["HEAD", "GET", "POST", "PATCH", "DELETE", "OPTIONS"]
+        )
+        adapter = HTTPAdapter(pool_connections=10, pool_maxsize=20, max_retries=retry_strategy)
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
+        _SESSION_LOCAL.session = session
+    return _SESSION_LOCAL.session
+
+
 class SupabaseResponse:
     """Standardized response object matching supabase-py API."""
     def __init__(self, data: Any = None, count: Optional[int] = None, error: Any = None):
@@ -118,16 +150,20 @@ class TableQuery:
         return self
 
     def execute(self) -> SupabaseResponse:
-        import requests
+        # Pre-flight check: Never attempt network call if Supabase URL is empty or invalid
+        if not self.endpoint.startswith(("http://", "https://")):
+            return SupabaseResponse(data=None, error="SUPABASE_UNCONFIGURED")
+
+        session = _get_http_session()
         try:
             if self.method == "GET":
-                res = requests.get(self.endpoint, headers=self.headers, params=self.params, timeout=12)
+                res = session.get(self.endpoint, headers=self.headers, params=self.params, timeout=8)
             elif self.method == "POST":
-                res = requests.post(self.endpoint, headers=self.headers, json=self.payload, params=self.params, timeout=12)
+                res = session.post(self.endpoint, headers=self.headers, json=self.payload, params=self.params, timeout=8)
             elif self.method == "PATCH":
-                res = requests.patch(self.endpoint, headers=self.headers, json=self.payload, params=self.params, timeout=12)
+                res = session.patch(self.endpoint, headers=self.headers, json=self.payload, params=self.params, timeout=8)
             elif self.method == "DELETE":
-                res = requests.delete(self.endpoint, headers=self.headers, params=self.params, timeout=12)
+                res = session.delete(self.endpoint, headers=self.headers, params=self.params, timeout=8)
             else:
                 raise ValueError(f"Unsupported method: {self.method}")
 
@@ -160,12 +196,14 @@ class SupabaseRestClient:
 # Initialize client: prefer official supabase SDK if present, fallback to built-in REST client
 supabase = None
 
-try:
-    from supabase import create_client  # type: ignore
-    if SUPABASE_URL and SUPABASE_SECRET_KEY:
+if is_supabase_configured():
+    try:
+        from supabase import create_client  # type: ignore
         supabase = create_client(SUPABASE_URL, SUPABASE_SECRET_KEY)
-except Exception:
-    pass
-
-if supabase is None:
-    supabase = SupabaseRestClient(SUPABASE_URL or "", SUPABASE_SECRET_KEY or "")
+        logger.info("Connected to Supabase PostgreSQL at %s", SUPABASE_URL)
+    except Exception as exc:
+        logger.warning("Official supabase-py init failed (%s); using pooled PostgREST adapter.", exc)
+        supabase = SupabaseRestClient(SUPABASE_URL or "", SUPABASE_SECRET_KEY or "")
+else:
+    logger.info("Supabase not configured or URL invalid. Operating in local storage mode.")
+    supabase = SupabaseRestClient("", "")

@@ -30,6 +30,7 @@ desktop.ini
 data/datasets/raw/
 data/models/*.pkl
 data/models/*.joblib
+*.db
 
 # Cloudflare
 cloudflared.exe

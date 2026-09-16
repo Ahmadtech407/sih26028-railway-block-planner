@@ -140,11 +140,46 @@ LIVE_TRAINS_DB: Dict[str, Dict[str, Any]] = {
 DATA_SOURCE: TrainDataSource = GovtRailwayDataSource()
 
 
+import time
+import concurrent.futures
+
+_PERSISTENCE_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="telemetry_persist_worker")
+
+
+def _persist_records_worker(records: List[Dict[str, Any]]) -> None:
+    """Asynchronous background worker function to persist telemetry and ML predictions without blocking GET requests."""
+    for rec in records:
+        try:
+            supa_store.store_telemetry(
+                train_number=rec["train_number"],
+                section_id=rec["section_id"],
+                position_km=rec["position_km"],
+                speed_kmph=rec["speed_kmph"],
+                delay_minutes=rec["delay_minutes"],
+                congestion_level=rec.get("congestion_level"),
+                gps_lat=rec.get("gps_lat"),
+                gps_lon=rec.get("gps_lon"),
+                data_source=rec["data_source"],
+            )
+            supa_store.store_ml_prediction(
+                train_number=rec["train_number"],
+                predicted_delay_minutes=rec["predicted_delay_minutes"],
+                predicted_congestion_level=rec.get("congestion_level", "LOW"),
+                congestion_probability=rec.get("congestion_prob", 0.15),
+                confidence_score=rec.get("confidence", 0.95),
+                model_name=rec.get("model_used", "Ensemble"),
+                model_version="3.0.0",
+            )
+        except Exception as exc:
+            pass
+
+
 def get_trains_for_section(section_id: str) -> List[TrainDetails]:
     """Read ingested live telemetry, Govt of India real data, or deterministic simulated movement."""
-
+    start_time = time.perf_counter()
     now = datetime.now(timezone.utc)
     trains = []
+    persist_records = []
 
     for record in LIVE_TRAINS_DB.values():
         if record.get("section_id") != section_id:
@@ -162,8 +197,18 @@ def get_trains_for_section(section_id: str) -> List[TrainDetails]:
             else:
                 continue
 
-        trains.append(_with_telemetry_fields(data, now, source))
+        train_detail, persist_payload = _with_telemetry_fields(data, now, source)
+        trains.append(train_detail)
+        persist_records.append(persist_payload)
 
+    # Offload non-critical DB persistence to background worker (non-blocking for fast GET response)
+    if persist_records:
+        try:
+            _PERSISTENCE_EXECUTOR.submit(_persist_records_worker, persist_records)
+        except Exception:
+            pass
+
+    elapsed_ms = (time.perf_counter() - start_time) * 1000.0
     return trains
 
 
@@ -180,12 +225,17 @@ def calculate_eta_minutes(position_km: float, speed_kmph: float, direction: Trai
     return max(0, round((max(0.0, distance) / speed_kmph) * 60))
 
 
-def _with_telemetry_fields(data: Dict[str, Any], now: datetime, source: str) -> TrainDetails:
+def _with_telemetry_fields(data: Dict[str, Any], now: datetime, source: str) -> Tuple[TrainDetails, Dict[str, Any]]:
     data = dict(data)
     timestamp = _parse_timestamp(data["telemetry_timestamp"])
     age = max(0, int((now - timestamp).total_seconds()))
     direction = data["direction"]
-    eta_minutes = calculate_eta_minutes(data["position_km"], data["speed_kmph"], direction)
+    pos_km = float(data.get("position_km", 414.2) or 414.2)
+    speed = float(data.get("speed_kmph", 80.0) or 80.0)
+    priority = int(data.get("priority", 3))
+    current_delay = int(data.pop("delay_minutes", 0) or 0)
+
+    eta_minutes = calculate_eta_minutes(pos_km, speed, direction)
     current_station = data.get("current_station") or ("Kanpur Central" if direction == TrainDirectionEnum.UP else "Prayagraj Junction")
     next_station = data.get("next_station") or ("Prayagraj Junction" if direction == TrainDirectionEnum.UP else "Kanpur Central")
     data.pop("current_station", None)
@@ -197,55 +247,56 @@ def _with_telemetry_fields(data: Dict[str, Any], now: datetime, source: str) -> 
     data.pop("eta_minutes", None)
     data.pop("predicted_delay_minutes", None)
     data.pop("congestion_level", None)
-    priority = int(data.get("priority", 3))
-    speed = float(data.get("speed_kmph", 80.0))
-    current_delay = int(data.pop("delay_minutes", 0) or 0)
+    data.pop("predicted_remaining_travel_time", None)
+    data.pop("model_used", None)
 
+    # Predict congestion level
     congestion, congestion_prob = ml.predict_congestion_with_probability(
         train_number=data.get("train_number", ""),
         priority=priority,
         speed_kmph=speed,
         delay_minutes=current_delay,
-        weather_risk="LOW",   # will be overridden when weather is available
-    )
-    predicted_delay = ml.predict_delay_minutes(
-        train_number=data.get("train_number", ""),
-        speed_kmph=speed,
-        current_delay=current_delay,
-        congestion_level=congestion,
-        priority=priority,
+        weather_risk="LOW",
     )
 
-    # --- Supabase persistence (fire-and-forget, never blocks) ---
-    try:
-        supa_store.store_telemetry(
-            train_number=str(data.get("train_number", "")),
-            section_id=str(data.get("section_id", "")),
-            position_km=float(data.get("position_km", 0.0)),
-            speed_kmph=speed,
-            delay_minutes=current_delay,
-            congestion_level=congestion,
-            gps_lat=data.get("gps_lat"),
-            gps_lon=data.get("gps_lon"),
-            data_source=source,
-        )
-        # Store real ML prediction in Supabase ml_predictions
-        try:
-            supa_store.store_ml_prediction(
-                train_number=str(data.get("train_number", "")),
-                predicted_delay_minutes=float(predicted_delay or 0.0),
-                predicted_congestion_level=str(congestion),
-                congestion_probability=congestion_prob,
-                confidence_score=0.96,
-                model_name="XGBoost_v3",
-                model_version="3.0.0",
-            )
-        except Exception:
-            pass
-    except Exception:
-        pass  # Never let storage failure break the train feed
+    # UNIFIED DYNAMIC PREDICTION via ModelRegistry Champion (Ensemble)
+    dest_km = 442.5 if direction == TrainDirectionEnum.UP else 400.0
+    dist_remaining = max(0.0, abs(dest_km - pos_km))
 
-    return TrainDetails(
+    dynamic_res = ml.predict_dynamic_eta({
+        "train_id": str(data.get("train_number", "")),
+        "priority": priority,
+        "speed_kmph": speed,
+        "current_delay": current_delay,
+        "congestion_level": congestion,
+        "position_km": pos_km,
+        "destination_km": dest_km,
+        "distance_remaining_km": dist_remaining,
+    }, model_name="best_model")
+
+    predicted_delay = int(round(dynamic_res.get("delay_estimate", current_delay)))
+    predicted_travel_time = int(round(dynamic_res.get("predicted_remaining_travel_time", eta_minutes or 0)))
+    model_name_used = str(dynamic_res.get("model_used", "Ensemble"))
+
+    # Return persistence payload dict along with TrainDetails
+    persist_payload = {
+        "train_number": str(data.get("train_number", "")),
+        "section_id": str(data.get("section_id", "")),
+        "position_km": pos_km,
+        "speed_kmph": speed,
+        "delay_minutes": current_delay,
+        "congestion_level": congestion,
+        "congestion_prob": congestion_prob,
+        "gps_lat": data.get("gps_lat"),
+        "gps_lon": data.get("gps_lon"),
+        "data_source": source,
+        "predicted_delay_minutes": float(predicted_delay),
+        "predicted_remaining_travel_time": predicted_travel_time,
+        "model_used": model_name_used,
+        "confidence": dynamic_res.get("confidence", 0.95),
+    }
+
+    train_detail = TrainDetails(
         **data,
         data_source=source,
         data_age_seconds=age,
@@ -256,8 +307,11 @@ def _with_telemetry_fields(data: Dict[str, Any], now: datetime, source: str) -> 
         eta_next_station=f"{next_station} in {eta_minutes} min" if eta_minutes is not None else "Unavailable",
         congestion_level=congestion,
         predicted_delay_minutes=predicted_delay,
+        predicted_remaining_travel_time=predicted_travel_time,
+        model_used=model_name_used,
         delay_minutes=current_delay,
     )
+    return train_detail, persist_payload
 
 
 def ingest_train_telemetry(request: TrainTelemetryIngestRequest) -> TrainTelemetryIngestResponse:
@@ -294,7 +348,11 @@ def ingest_train_telemetry(request: TrainTelemetryIngestRequest) -> TrainTelemet
         "next_station": request.next_station,
         "position_km": request.position_km if request.position_km is not None else existing["position_km"],
     }
-    data = _with_telemetry_fields({**existing, **INGESTED_TELEMETRY[request.train_number]}, datetime.now(timezone.utc), "LIVE_GPS")
+    data, persist_payload = _with_telemetry_fields({**existing, **INGESTED_TELEMETRY[request.train_number]}, datetime.now(timezone.utc), "LIVE_GPS")
+    try:
+        _PERSISTENCE_EXECUTOR.submit(_persist_records_worker, [persist_payload])
+    except Exception:
+        pass
     return TrainTelemetryIngestResponse(
         status="INGESTED",
         train_number=request.train_number,

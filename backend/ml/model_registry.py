@@ -75,6 +75,13 @@ class ModelRegistry:
 
         self._loaded = len(self._models) > 0
 
+    def reload(self) -> None:
+        """Reload all models and comparison summary from disk."""
+        self._models.clear()
+        self._comparison.clear()
+        self._load_registry()
+        logger.info("ModelRegistry reloaded. Active models: %s", list(self._models.keys()))
+
     def get_comparison(self) -> Dict[str, Any]:
         """Return raw model evaluation comparison dictionary."""
         return self._comparison

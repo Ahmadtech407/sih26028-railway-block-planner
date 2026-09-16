@@ -59,8 +59,8 @@
   "ensemble_improved": true,
   "selected_production_model": "Ensemble",
   "target_variable": "target_remaining_travel_time_minutes",
-  "evaluation_timestamp": "2026-09-16T18:36:34.213397+00:00",
+  "evaluation_timestamp": "2026-09-16T20:07:18.812257+00:00",
   "train_samples": 1737,
   "test_samples": 435,
-  "data_honesty_statement": "Model performance depends on the quality and representativeness of the training data."
+  "data_honesty_statement": "Model performance evaluated on out-of-sample 20% test partition with 5-fold cross-validation."
 }

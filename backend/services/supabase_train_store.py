@@ -18,14 +18,102 @@ and congestion records to Supabase. Matches the real Supabase schema:
 from __future__ import annotations
 
 import logging
+import sqlite3
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from backend.supa_client import is_supabase_configured
+
 logger = logging.getLogger(__name__)
+
+from contextlib import contextmanager
+
+LOCAL_DB_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "railtrack_local.db"
+
+
+@contextmanager
+def _get_sqlite_conn():
+    conn = sqlite3.connect(LOCAL_DB_PATH)
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+
+def _init_sqlite_tables():
+    LOCAL_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with _get_sqlite_conn() as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS local_train_live_positions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    train_number TEXT,
+                    train_id INTEGER,
+                    section_id TEXT,
+                    latitude REAL,
+                    longitude REAL,
+                    speed_kmph REAL,
+                    position_km REAL,
+                    delay_minutes INTEGER,
+                    congestion_level TEXT,
+                    data_source TEXT,
+                    recorded_at TEXT
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS local_ml_predictions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    train_number TEXT,
+                    predicted_delay_minutes REAL,
+                    predicted_congestion_level TEXT,
+                    congestion_probability REAL,
+                    confidence_score REAL,
+                    model_name TEXT,
+                    model_version TEXT,
+                    recorded_at TEXT
+                )
+            """)
+            conn.commit()
+    except Exception as exc:
+        logger.debug("Local SQLite init error: %s", exc)
+
+
+_init_sqlite_tables()
 
 # Train number to train_id lookup cache
 _TRAIN_ID_CACHE: Dict[str, int] = {}
 _STATION_ID_CACHE: Dict[str, int] = {"CNB": 1, "PRYJ": 2, "LKO": 3}
+
+
+def _store_telemetry_sqlite(train_number, section_id, position_km, speed_kmph, delay_minutes, congestion_level, gps_lat, gps_lon, data_source, now_iso):
+    try:
+        with _get_sqlite_conn() as conn:
+            conn.execute("""
+                INSERT INTO local_train_live_positions 
+                (train_number, section_id, latitude, longitude, speed_kmph, position_km, delay_minutes, congestion_level, data_source, recorded_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (str(train_number), str(section_id), gps_lat or 26.4499, gps_lon or 80.3319, round(speed_kmph, 1), round(position_km, 2), delay_minutes, congestion_level, data_source, now_iso))
+            conn.commit()
+        return True
+    except Exception as exc:
+        logger.debug("SQLite store_telemetry error: %s", exc)
+        return False
+
+
+def _store_ml_prediction_sqlite(train_number, predicted_delay_minutes, predicted_congestion_level, congestion_probability, confidence_score, model_name, model_version, now_iso):
+    try:
+        with _get_sqlite_conn() as conn:
+            conn.execute("""
+                INSERT INTO local_ml_predictions 
+                (train_number, predicted_delay_minutes, predicted_congestion_level, congestion_probability, confidence_score, model_name, model_version, recorded_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (str(train_number), float(predicted_delay_minutes), str(predicted_congestion_level), float(congestion_probability), float(confidence_score), str(model_name), str(model_version), now_iso))
+            conn.commit()
+        return True
+    except Exception as exc:
+        logger.debug("SQLite store_ml_prediction error: %s", exc)
+        return False
 
 
 def _get_client():
@@ -98,50 +186,49 @@ def store_telemetry(
     data_source: str = "SIMULATED",
 ) -> bool:
     """
-    Insert one telemetry record into Supabase (train_live_positions).
-    Returns True on success, False on any failure.
+    Insert one telemetry record into Supabase (train_live_positions),
+    falling back to local SQLite if Supabase is unconfigured or offline.
     """
-    client = _get_client()
-    if client is None:
-        return False
-
-    train_id = get_train_id(train_number) or 1
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    try:
-        client.table("train_live_positions").insert(
-            {
-                "train_id": train_id,
-                "latitude": gps_lat or 26.4499,
-                "longitude": gps_lon or 80.3319,
-                "speed_kmph": round(speed_kmph, 1),
-                "current_station_id": 1,
-                "next_station_id": 2,
-                "distance_to_next_station_km": round(max(0.0, 442.5 - position_km), 2),
-                "distance_travelled_km": round(position_km, 2),
-                "data_source": data_source,
-                "recorded_at": now_iso,
-            }
-        ).execute()
+    if is_supabase_configured():
+        client = _get_client()
+        if client:
+            train_id = get_train_id(train_number) or 1
+            try:
+                client.table("train_live_positions").insert(
+                    {
+                        "train_id": train_id,
+                        "latitude": gps_lat or 26.4499,
+                        "longitude": gps_lon or 80.3319,
+                        "speed_kmph": round(speed_kmph, 1),
+                        "current_station_id": 1,
+                        "next_station_id": 2,
+                        "distance_to_next_station_km": round(max(0.0, 442.5 - position_km), 2),
+                        "distance_travelled_km": round(position_km, 2),
+                        "data_source": data_source,
+                        "recorded_at": now_iso,
+                    }
+                ).execute()
 
-        # If congestion data is present, also log to congestion_data
-        if congestion_level:
-            client.table("congestion_data").insert(
-                {
-                    "station_id": 1,
-                    "train_id": train_id,
-                    "congestion_level": congestion_level,
-                    "congestion_score": 10.0 if congestion_level == "LOW" else 50.0 if congestion_level == "MEDIUM" else 90.0,
-                    "trains_in_section": 1,
-                    "source": data_source,
-                    "recorded_at": now_iso,
-                }
-            ).execute()
+                if congestion_level:
+                    client.table("congestion_data").insert(
+                        {
+                            "station_id": 1,
+                            "train_id": train_id,
+                            "congestion_level": congestion_level,
+                            "congestion_score": 10.0 if congestion_level == "LOW" else 50.0 if congestion_level == "MEDIUM" else 90.0,
+                            "trains_in_section": 1,
+                            "source": data_source,
+                            "recorded_at": now_iso,
+                        }
+                    ).execute()
+                return True
+            except Exception as exc:
+                logger.debug("store_telemetry to Supabase failed: %s; saving to local SQLite.", exc)
 
-        return True
-    except Exception as exc:
-        logger.warning("store_telemetry failed: %s", exc)
-        return False
+    # Local SQLite fallback
+    return _store_telemetry_sqlite(train_number, section_id, position_km, speed_kmph, delay_minutes, congestion_level, gps_lat, gps_lon, data_source, now_iso)
 
 
 def get_telemetry_history(
@@ -149,25 +236,41 @@ def get_telemetry_history(
     limit: int = 100,
 ) -> List[Dict[str, Any]]:
     """
-    Return the most recent telemetry records for a train.
+    Return the most recent telemetry records for a train from Supabase or local SQLite fallback.
     """
-    client = _get_client()
-    if client is None:
-        return []
+    if is_supabase_configured():
+        client = _get_client()
+        if client:
+            train_id = get_train_id(train_number) or 1
+            try:
+                response = (
+                    client.table("train_live_positions")
+                    .select("*")
+                    .eq("train_id", train_id)
+                    .order("recorded_at", desc=True)
+                    .limit(limit)
+                    .execute()
+                )
+                if response.data:
+                    return response.data
+            except Exception as exc:
+                logger.debug("get_telemetry_history from Supabase failed: %s; falling back to local SQLite.", exc)
 
-    train_id = get_train_id(train_number) or 1
+    # Local SQLite fallback
     try:
-        response = (
-            client.table("train_live_positions")
-            .select("*")
-            .eq("train_id", train_id)
-            .order("recorded_at", desc=True)
-            .limit(limit)
-            .execute()
-        )
-        return response.data or []
+        with _get_sqlite_conn() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT train_number as train_id, train_number, latitude, longitude, speed_kmph, position_km as distance_travelled_km, data_source, recorded_at
+                FROM local_train_live_positions
+                WHERE train_number = ?
+                ORDER BY recorded_at DESC
+                LIMIT ?
+            """, (str(train_number), limit))
+            return [dict(row) for row in cursor.fetchall()]
     except Exception as exc:
-        logger.warning("get_telemetry_history failed: %s", exc)
+        logger.debug("SQLite get_telemetry_history error: %s", exc)
         return []
 
 
@@ -312,22 +415,37 @@ def get_ml_training_data(
     section_id: Optional[str] = None,
     limit: int = 1000,
 ) -> List[Dict[str, Any]]:
-    """Fetch telemetry and live position records for ML model training."""
-    client = _get_client()
-    if client is None:
-        return []
+    """Fetch telemetry and live position records for ML model training from Supabase or SQLite."""
+    if is_supabase_configured():
+        client = _get_client()
+        if client:
+            try:
+                res = (
+                    client.table("train_live_positions")
+                    .select("train_id, speed_kmph, distance_travelled_km, recorded_at")
+                    .order("recorded_at", desc=True)
+                    .limit(limit)
+                    .execute()
+                )
+                if res.data:
+                    return res.data
+            except Exception as exc:
+                logger.debug("get_ml_training_data from Supabase failed: %s; querying local SQLite.", exc)
 
+    # Local SQLite fallback
     try:
-        res = (
-            client.table("train_live_positions")
-            .select("train_id, speed_kmph, distance_travelled_km, recorded_at")
-            .order("recorded_at", desc=True)
-            .limit(limit)
-            .execute()
-        )
-        return res.data or []
+        with _get_sqlite_conn() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT train_number as train_id, speed_kmph, position_km as distance_travelled_km, recorded_at
+                FROM local_train_live_positions
+                ORDER BY recorded_at DESC
+                LIMIT ?
+            """, (limit,))
+            return [dict(row) for row in cursor.fetchall()]
     except Exception as exc:
-        logger.warning("get_ml_training_data failed: %s", exc)
+        logger.debug("SQLite get_ml_training_data error: %s", exc)
         return []
 
 
@@ -338,59 +456,76 @@ def store_ml_prediction(
     predicted_congestion_level: str = "LOW",
     congestion_probability: float = 0.15,
     confidence_score: float = 0.95,
-    model_name: str = "CalibratedGradientEnsemble",
-    model_version: str = "1.0.2",
+    model_name: str = "Ensemble",
+    model_version: str = "3.0.0",
     schedule_id: Optional[int] = None,
 ) -> bool:
-    """Store an ML delay/congestion prediction in Supabase ml_predictions."""
-    client = _get_client()
-    if client is None:
-        return False
-
-    train_id = get_train_id(train_number) or 1
+    """Store an ML delay/congestion prediction in Supabase or local SQLite fallback."""
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    try:
-        payload = {
-            "train_id": train_id,
-            "schedule_id": schedule_id,
-            "predicted_delay_minutes": float(predicted_delay_minutes),
-            "predicted_eta": predicted_eta or now_iso,
-            "predicted_congestion_level": str(predicted_congestion_level),
-            "congestion_probability": float(congestion_probability),
-            "confidence_score": float(confidence_score),
-            "model_name": str(model_name),
-            "model_version": str(model_version),
-        }
-        res = client.table("ml_predictions").insert(payload).execute()
-        return bool(res.data)
-    except Exception as exc:
-        logger.warning("store_ml_prediction failed: %s", exc)
-        return False
+    if is_supabase_configured():
+        client = _get_client()
+        if client:
+            train_id = get_train_id(train_number) or 1
+            try:
+                payload = {
+                    "train_id": train_id,
+                    "schedule_id": schedule_id,
+                    "predicted_delay_minutes": float(predicted_delay_minutes),
+                    "predicted_eta": predicted_eta or now_iso,
+                    "predicted_congestion_level": str(predicted_congestion_level),
+                    "congestion_probability": float(congestion_probability),
+                    "confidence_score": float(confidence_score),
+                    "model_name": str(model_name),
+                    "model_version": str(model_version),
+                }
+                res = client.table("ml_predictions").insert(payload).execute()
+                if res.data:
+                    return True
+            except Exception as exc:
+                logger.debug("store_ml_prediction to Supabase failed: %s; saving to local SQLite.", exc)
+
+    # Local SQLite fallback
+    return _store_ml_prediction_sqlite(train_number, predicted_delay_minutes, predicted_congestion_level, congestion_probability, confidence_score, model_name, model_version, now_iso)
 
 
 def get_latest_ml_prediction(train_number: str) -> Optional[Dict[str, Any]]:
-    """Retrieve the latest ML prediction for a train."""
-    client = _get_client()
-    if client is None:
-        return None
+    """Retrieve the latest ML prediction for a train from Supabase or local SQLite."""
+    if is_supabase_configured():
+        client = _get_client()
+        if client:
+            train_id = get_train_id(train_number) or 1
+            try:
+                res = (
+                    client.table("ml_predictions")
+                    .select("*")
+                    .eq("train_id", train_id)
+                    .order("recorded_at", desc=True)
+                    .limit(1)
+                    .execute()
+                )
+                if res.data and len(res.data) > 0:
+                    return res.data[0]
+            except Exception as exc:
+                logger.debug("get_latest_ml_prediction from Supabase failed: %s; querying SQLite.", exc)
 
-    train_id = get_train_id(train_number) or 1
+    # Local SQLite fallback
     try:
-        res = (
-            client.table("ml_predictions")
-            .select("*")
-            .eq("train_id", train_id)
-            .order("id", desc=True)
-            .limit(1)
-            .execute()
-        )
-        if res.data and len(res.data) > 0:
-            return res.data[0]
+        with _get_sqlite_conn() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT train_number as train_id, train_number, predicted_delay_minutes, predicted_congestion_level, congestion_probability, confidence_score, model_name, model_version, recorded_at
+                FROM local_ml_predictions
+                WHERE train_number = ?
+                ORDER BY recorded_at DESC
+                LIMIT 1
+            """, (str(train_number),))
+            row = cursor.fetchone()
+            return dict(row) if row else None
     except Exception as exc:
-        logger.warning("get_latest_ml_prediction failed: %s", exc)
-
-    return None
+        logger.debug("SQLite get_latest_ml_prediction error: %s", exc)
+        return None
 
 
 def get_station_platform_status(station_code: str = "CNB") -> List[Dict[str, Any]]:
