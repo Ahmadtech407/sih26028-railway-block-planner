@@ -80,7 +80,7 @@ def test_dynamic_eta_prediction_structure():
     })
     assert res["train_id"] == "22436"
     assert res["predicted_remaining_travel_time"] > 0
-    assert res["model_used"] == "XGBoost"
+    assert res["model_used"] in ("Ensemble", "XGBoost", "Gradient Boosting")
     assert res["prediction_status"] in ("NOMINAL", "DELAYED")
     assert ":" in res["predicted_arrival_time"]
 

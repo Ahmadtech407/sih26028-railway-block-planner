@@ -99,7 +99,7 @@ def test_api_dynamic_eta_prediction_endpoint():
     assert response.status_code == 200
     data = response.json()
     assert data["train_id"] == "22436"
-    assert data["model_used"] == "XGBoost"
+    assert data["model_used"] in ("Ensemble", "XGBoost", "Gradient Boosting")
     assert data["predicted_remaining_travel_time"] > 0
     assert data["prediction_status"] in ("NOMINAL", "DELAYED")
     assert "predicted_arrival_time" in data
@@ -110,7 +110,7 @@ def test_api_active_train_dynamic_eta():
     assert response.status_code == 200
     data = response.json()
     assert data["train_id"] == "22436"
-    assert data["model_used"] == "XGBoost"
+    assert data["model_used"] in ("Ensemble", "XGBoost", "Gradient Boosting")
     assert data["predicted_remaining_travel_time"] >= 0
 
 

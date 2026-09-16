@@ -1,0 +1,66 @@
+{
+  "models": {
+    "XGBoost": {
+      "MAE": 3.315,
+      "RMSE": 10.264,
+      "R2": 0.9893,
+      "CV_5Fold_MAE": 3.764,
+      "CV_5Fold_Std": 0.78
+    },
+    "Random Forest": {
+      "MAE": 2.729,
+      "RMSE": 15.652,
+      "R2": 0.9752,
+      "CV_5Fold_MAE": 3.459,
+      "CV_5Fold_Std": 0.772
+    },
+    "SVR": {
+      "MAE": 11.63,
+      "RMSE": 54.464,
+      "R2": 0.6996,
+      "CV_5Fold_MAE": 12.559,
+      "CV_5Fold_Std": 2.181
+    },
+    "Gradient Boosting": {
+      "MAE": 2.61,
+      "RMSE": 8.13,
+      "R2": 0.9933,
+      "CV_5Fold_MAE": 3.228,
+      "CV_5Fold_Std": 0.865
+    },
+    "Decision Tree": {
+      "MAE": 3.589,
+      "RMSE": 11.104,
+      "R2": 0.9875,
+      "CV_5Fold_MAE": 5.055,
+      "CV_5Fold_Std": 1.326
+    },
+    "Ensemble": {
+      "MAE": 2.551,
+      "RMSE": 10.141,
+      "R2": 0.9896,
+      "weights": {
+        "XGBoost": 0.1609,
+        "Random Forest": 0.3274,
+        "SVR": 0.0,
+        "Gradient Boosting": 0.5117,
+        "Decision Tree": 0.0
+      }
+    }
+  },
+  "best_individual_model": "Gradient Boosting",
+  "ensemble_weights": {
+    "XGBoost": 0.1609,
+    "Random Forest": 0.3274,
+    "SVR": 0.0,
+    "Gradient Boosting": 0.5117,
+    "Decision Tree": 0.0
+  },
+  "ensemble_improved": true,
+  "selected_production_model": "Ensemble",
+  "target_variable": "target_remaining_travel_time_minutes",
+  "evaluation_timestamp": "2026-09-16T18:36:34.213397+00:00",
+  "train_samples": 1737,
+  "test_samples": 435,
+  "data_honesty_statement": "Model performance depends on the quality and representativeness of the training data."
+}

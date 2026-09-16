@@ -2,7 +2,7 @@
 ML Prediction Service — Indian Railways Congestion & Dynamic ETA / Delay
 ========================================================================
 Provides real-time machine learning predictions for the passenger dashboard and backend:
-1. Trained XGBoost Dynamic ETA & Delay Regressor (MAE=0.18 min, R^2=1.00)
+1. Multi-model Dynamic ETA & Delay Predictor (XGBoost, LightGBM, Random Forest, NuSVR, ensemble)
 2. Trained Random Forest Congestion Classifier (Accuracy=99.3%, Macro F1=0.972)
 3. Zero-downtime calibrated physics & rule-based fallback if serialized models are unavailable.
 """
@@ -19,6 +19,7 @@ import pandas as pd
 import numpy as np
 
 from backend.ml.feature_engineering import create_eta_features, FEATURES_NUM, FEATURES_CAT
+from backend.ml.model_registry import registry
 
 logger = logging.getLogger(__name__)
 
@@ -272,7 +273,7 @@ def predict_delay_minutes(
     return max(0, int(current_delay) + additional)
 
 
-def predict_dynamic_eta(train_state: Dict[str, Any]) -> Dict[str, Any]:
+def predict_dynamic_eta(train_state: Dict[str, Any], model_name: str = "best_model") -> Dict[str, Any]:
     """
     Compute truly dynamic ML-enhanced ETA and travel time remaining using XGBoost.
 
@@ -374,25 +375,49 @@ def predict_dynamic_eta(train_state: Dict[str, Any]) -> Dict[str, Any]:
     # Stop penalty: if train is stopped unexpectedly, add dwell delay
     stop_penalty = 12 if is_stopped else 0
 
-    # ML predicted delay via XGBoost
+    # ML Multi-model prediction via Registry
     try:
-        predicted_delay = predict_delay_minutes(
-            train_number=train_id,
-            speed_kmph=speed,
-            current_delay=curr_delay + stop_penalty,
-            weather_risk=weather,
-            congestion_level=congestion,
-            priority=priority,
-            distance_remaining_km=dist_remaining,
-            distance_travelled_km=float(pos_km or 120.0),
-        )
-        model_name = "XGBoost"
+        state_for_features = {
+            "train_number": train_id,
+            "priority": priority,
+            "speed_kmph": effective_speed,
+            "current_delay": curr_delay + stop_penalty,
+            "weather_risk": weather,
+            "hour_of_day": now.hour,
+            "congestion_level": congestion,
+            "distance_remaining_km": dist_remaining,
+            "distance_travelled_km": float(pos_km or 120.0),
+        }
+        features_df = create_eta_features(state_for_features)
+        
+        predicted_remaining_min, model_used, breakdown = registry.predict(features_df, model_name)
+        
+        # Enforce physical kinematic lower bound (a train cannot travel faster than physics allows)
+        total_remaining_min = max(int(round(kinematic_travel_min)), int(round(predicted_remaining_min)))
+        if is_stopped:
+            total_remaining_min += stop_penalty
+            
+        predicted_delay = max(0, total_remaining_min - int(round(kinematic_travel_min)))
+        model_name_used = model_used
         confidence = 0.95
     except Exception as exc:
         logger.warning("Dynamic ETA ML error for %s: %s. Using fallback.", train_id, exc)
+        total_remaining_min = max(0, int(round(kinematic_travel_min))) + curr_delay + stop_penalty
         predicted_delay = curr_delay + stop_penalty
-        model_name = "CALIBRATED_FALLBACK"
-        confidence = 0.80
+        model_name_used = "PHYSICS_FALLBACK"
+        confidence = 0.70
+        breakdown = {}
+
+    if total_remaining_min < 0: total_remaining_min = 0
+    if predicted_delay < 0: predicted_delay = 0
+
+    has_disruption = (
+        train_state.get("ohe_failure", False) or 
+        train_state.get("track_blockage", False) or 
+        train_state.get("signal_failure", False)
+    )
+    if has_disruption and model_name_used != "PHYSICS_FALLBACK":
+        total_remaining_min = int(round(total_remaining_min * 1.3))
 
     # Telemetry blackout / sensor degradation decay
     if data_age > 60.0:
@@ -400,7 +425,6 @@ def predict_dynamic_eta(train_state: Dict[str, Any]) -> Dict[str, Any]:
         confidence = max(0.40, round(confidence - decay, 2))
 
     # ETA = current_time + predicted_remaining_time
-    total_remaining_min = max(0, int(round(kinematic_travel_min + predicted_delay)))
     eta_dt = now + timedelta(minutes=total_remaining_min)
     predicted_arrival_str = eta_dt.strftime("%H:%M")
 
@@ -411,7 +435,7 @@ def predict_dynamic_eta(train_state: Dict[str, Any]) -> Dict[str, Any]:
         status = "DEGRADED_TELEMETRY"
     elif predicted_delay > 15:
         status = "DELAYED"
-    elif model_name == "CALIBRATED_FALLBACK":
+    elif model_name_used == "PHYSICS_FALLBACK":
         status = "FALLBACK"
     else:
         status = "NOMINAL"
@@ -426,10 +450,20 @@ def predict_dynamic_eta(train_state: Dict[str, Any]) -> Dict[str, Any]:
         "delay_estimate": predicted_delay,
         "confidence": confidence,
         "prediction_status": status,
-        "model_used": model_name,
+        "model_used": model_name_used,
+        "model_predictions": breakdown,
+        "prediction_method": "ML_MULTI_MODEL" if model_name_used != "PHYSICS_FALLBACK" else "PHYSICS_FALLBACK",
         "train_mass_tonnes": mass_tonnes,
         "track_gradient_pct": gradient_pct,
     }
+
+
+def get_model_performance() -> Dict[str, Any]:
+    """Return multi-model comparison metrics from the registry."""
+    try:
+        return registry.get_comparison()
+    except Exception:
+        return {"error": "Model comparison data unavailable"}
 
 
 def predict_dynamic_eta_minutes(
@@ -441,6 +475,7 @@ def predict_dynamic_eta_minutes(
     weather_risk: str = "LOW",
     congestion_level: str = "LOW",
     priority: int = 3,
+    model_name: str = "best_model",
 ) -> Dict[str, Any]:
     """Helper for station network corridor kinematics."""
     state = {
@@ -454,7 +489,7 @@ def predict_dynamic_eta_minutes(
         "congestion_level": congestion_level,
         "priority": priority,
     }
-    return predict_dynamic_eta(state)
+    return predict_dynamic_eta(state, model_name=model_name)
 
 
 def get_congestion_emoji(level: str) -> str:

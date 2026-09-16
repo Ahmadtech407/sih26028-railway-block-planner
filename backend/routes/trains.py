@@ -16,6 +16,7 @@ from backend.schemas.api_models import (
     TrainTelemetryIngestResponse,
     NormalizedTrainState,
     OperationalReadinessReport,
+    ModelPerformanceResponse,
 )
 from backend.services.train_service import (
     get_trains_for_section,
@@ -57,6 +58,34 @@ async def operational_readiness():
     )
 
 
+@router.get("/eta/model-performance", response_model=ModelPerformanceResponse, summary="Get multi-model evaluation metrics")
+async def get_model_performance():
+    """Return comparative evaluation metrics (MAE, RMSE, R²) for all trained ETA models."""
+    data = ml.get_model_performance()
+    return ModelPerformanceResponse(**data)
+
+
+@router.get("/eta/predict", response_model=TrainETAPredictionResponse, summary="Predict ETA with model selection")
+async def predict_eta_with_model(
+    train_number: str = Query(..., description="Train number"),
+    model_name: str = Query("best_model", description="Model: best_model, ensemble, xgboost, random_forest, svr, gradient_boosting, decision_tree"),
+):
+    """Predict ETA for a train using a specific model architecture."""
+    from backend.services.train_service import get_train_by_number
+    train = get_train_by_number(train_number)
+    state = {
+        "train_id": train_number,
+        "current_station": getattr(train, "current_station", None) if train else None,
+        "next_station": getattr(train, "next_station", None) if train else None,
+        "speed_kmph": getattr(train, "speed_kmph", 80.0) if train else 80.0,
+        "position_km": getattr(train, "position_km", None) if train else None,
+        "delay_minutes": getattr(train, "delay_minutes", 0) if train else 0,
+        "priority": getattr(train, "priority", 3) if train else 3,
+    }
+    res = ml.predict_dynamic_eta(state, model_name=model_name)
+    return TrainETAPredictionResponse(**res)
+
+
 @router.get("/{train_number}", response_model=TrainDetails, summary="Get train details by number")
 async def retrieve_train(train_number: str):
     """Retrieve detailed schedule and telemetry info for a specific train."""
@@ -87,7 +116,9 @@ async def predict_dynamic_eta_endpoint(request: TrainETAPredictionRequest):
     Computes dynamic ML-driven remaining travel time and arrival ETA
     using the production XGBoost regressor model with robust fallbacks.
     """
-    res = ml.predict_dynamic_eta(request.model_dump())
+    state = request.model_dump()
+    model_name = state.pop("model_name", "best_model")
+    res = ml.predict_dynamic_eta(state, model_name=model_name)
     return TrainETAPredictionResponse(**res)
 
 

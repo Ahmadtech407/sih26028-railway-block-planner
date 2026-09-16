@@ -200,6 +200,7 @@ class TrainETAPredictionRequest(BaseModel):
     weather_risk: Optional[str] = "LOW"
     congestion_level: Optional[str] = "LOW"
     priority: Optional[int] = 3
+    model_name: Optional[str] = Field("best_model", description="Model to use: best_model, ensemble, xgboost, random_forest, svr, gradient_boosting, decision_tree")
 
 
 class TrainETAPredictionResponse(BaseModel):
@@ -213,6 +214,17 @@ class TrainETAPredictionResponse(BaseModel):
     confidence: float = Field(..., description="Prediction confidence score")
     prediction_status: str = Field(..., description="NOMINAL, DELAYED, ARRIVED, STOPPED, or FALLBACK")
     model_used: str = Field("XGBoost", description="Model used for ETA inference")
+    model_predictions: Optional[Dict[str, float]] = Field(None, description="Predictions from all available models")
+    prediction_method: Optional[str] = Field(None, description="ML_MULTI_MODEL or PHYSICS_FALLBACK")
+
+
+class ModelPerformanceResponse(BaseModel):
+    best_individual_model: Optional[str] = None
+    selected_production_model: Optional[str] = None
+    ensemble_weights: Optional[Dict[str, float]] = None
+    models: Optional[Dict[str, Any]] = None
+    ensemble_improved_over_best: Optional[bool] = None
+    training_timestamp: Optional[str] = None
 
 
 class DataProvenanceEnum(str, Enum):
