@@ -112,3 +112,34 @@ def test_api_active_train_dynamic_eta():
     assert data["train_id"] == "22436"
     assert data["model_used"] == "XGBoost"
     assert data["predicted_remaining_travel_time"] >= 0
+
+
+def test_api_normalized_trains_endpoint():
+    response = client.get("/api/trains/normalized?section_id=KNP-PRYJ-SEC-B")
+    assert response.status_code == 200
+    trains = response.json()
+    assert isinstance(trains, list)
+    assert len(trains) > 0
+    t = trains[0]
+    assert "train_number" in t
+    assert "data_source" in t
+    assert t["data_source"] in ("SIMULATED", "LIVE_GPS", "GOVT_OPEN_FEED", "CALIBRATED_FALLBACK")
+    assert "train_mass_tonnes" in t
+    assert t["train_mass_tonnes"] > 0
+    assert "data_confidence" in t
+    assert 0.0 <= t["data_confidence"] <= 1.0
+
+
+def test_api_operational_readiness_endpoints():
+    # Test both /api/system/operational-readiness and /api/trains/operational-readiness
+    for path in ("/api/system/operational-readiness", "/api/trains/operational-readiness", "/system/operational-readiness"):
+        response = client.get(path)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["safety_classification"] == "NON_VITAL_ADVISORY_DSS"
+        assert data["sil_certification_status"] == "NOT_SIL_CERTIFIED_REQUIRES_HUMAN_IN_THE_LOOP"
+        assert data["human_in_the_loop_mandatory"] is True
+        assert "XGBoost" in data["primary_ml_model"]
+        assert "disclaimer" in data
+        assert len(data["telemetry_sources_active"]) > 0
+

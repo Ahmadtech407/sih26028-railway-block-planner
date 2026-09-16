@@ -14,9 +14,12 @@ from backend.schemas.api_models import (
     TrainETAPredictionResponse,
     TrainTelemetryIngestRequest,
     TrainTelemetryIngestResponse,
+    NormalizedTrainState,
+    OperationalReadinessReport,
 )
 from backend.services.train_service import (
     get_trains_for_section,
+    get_normalized_trains_for_section,
     get_train_by_number,
     predict_train_kinematics,
     ingest_train_telemetry,
@@ -32,6 +35,26 @@ router = APIRouter(prefix="/trains", tags=["Trains & Telemetry"])
 async def list_trains(section_id: str = Query("KNP-PRYJ-SEC-B", description="Track section identifier")):
     """List all scheduled train paths, entry/exit times, and speeds for a section."""
     return get_trains_for_section(section_id)
+
+
+@router.get("/normalized", response_model=List[NormalizedTrainState], summary="Get normalized trains with full provenance")
+async def list_normalized_trains(section_id: str = Query("KNP-PRYJ-SEC-B", description="Track section identifier")):
+    """List all active trains normalized into standardized schema with explicit data provenance and physics parameters."""
+    return get_normalized_trains_for_section(section_id)
+
+
+@router.get("/operational-readiness", response_model=OperationalReadinessReport, summary="Get system operational readiness & safety classification")
+async def operational_readiness():
+    """Returns official operational posture, advisory DSS classification, and safety disclaimers."""
+    from backend.services import govt_railway_service
+    feed_status = govt_railway_service.get_feed_status()
+    sources = ["INTERNAL_KINEMATIC_SIMULATOR", "SUPABASE_TELEMETRY_STORE"]
+    if feed_status.get("configured"):
+        sources.append(f"EXTERNAL_FEED_{feed_status.get('provider')}")
+
+    return OperationalReadinessReport(
+        telemetry_sources_active=sources,
+    )
 
 
 @router.get("/{train_number}", response_model=TrainDetails, summary="Get train details by number")

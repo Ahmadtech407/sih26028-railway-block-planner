@@ -23,6 +23,7 @@ from backend.routes.intelligence import router as intelligence_router
 from backend.routes.auth import router as auth_router
 from backend.routes.tickets import router as tickets_router
 from backend.database import init_database
+from backend.schemas.api_models import OperationalReadinessReport
 from backend.websocket import ws_manager
 
 logger = logging.getLogger(__name__)
@@ -182,6 +183,14 @@ async def health():
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "subsystems": subsystems,
     }
+
+
+@app.get("/api/system/operational-readiness", response_model=OperationalReadinessReport, summary="Get system operational readiness & safety classification")
+@app.get("/system/operational-readiness", response_model=OperationalReadinessReport, summary="Get system operational readiness & safety classification (alias)")
+async def system_operational_readiness():
+    """Returns official operational posture, advisory DSS classification, and safety disclaimers."""
+    from backend.routes.trains import operational_readiness
+    return await operational_readiness()
 
 
 # -------------------------------------------------------------------

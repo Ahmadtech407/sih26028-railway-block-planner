@@ -342,9 +342,31 @@ def predict_dynamic_eta(train_state: Dict[str, Any]) -> Dict[str, Any]:
             "model_used": "XGBoost",
         }
 
+    # Physical traction parameters
+    mass_tonnes = float(train_state.get("train_mass_tonnes") or (850.0 if priority <= 1 else (1400.0 if priority <= 3 else 5200.0)))
+    gradient_pct = float(train_state.get("track_gradient_pct") or 0.0)
+    tsr_limit = train_state.get("speed_restriction_kmph")
+    data_age = float(train_state.get("data_age_seconds", 0.0) or 0.0)
+
     # Rule 2: Sudden stop or unexpected slowdown
     is_stopped = speed < 5.0
     effective_speed = max(25.0, speed) if not is_stopped else 40.0  # nominal crawl estimate for recovery
+
+    # Apply temporary speed restriction if active on block
+    if tsr_limit is not None and float(tsr_limit) > 0:
+        effective_speed = min(effective_speed, float(tsr_limit))
+
+    # Apply Indian Railways winter fog visibility speed cap (75 km/h)
+    w_upper = weather.upper()
+    if "FOG" in w_upper or "EXTREME" in w_upper:
+        effective_speed = min(effective_speed, 75.0)
+
+    # Apply gradient resistance (rising slope decelerates heavy freight trains)
+    if gradient_pct > 0 and mass_tonnes > 2500.0:
+        gradient_penalty = min(0.30, gradient_pct * 0.15)
+        effective_speed *= (1.0 - gradient_penalty)
+
+    effective_speed = max(15.0, effective_speed)
 
     # Kinematic base travel time
     kinematic_travel_min = (dist_remaining / effective_speed) * 60.0
@@ -372,6 +394,11 @@ def predict_dynamic_eta(train_state: Dict[str, Any]) -> Dict[str, Any]:
         model_name = "CALIBRATED_FALLBACK"
         confidence = 0.80
 
+    # Telemetry blackout / sensor degradation decay
+    if data_age > 60.0:
+        decay = min(0.45, (data_age - 60.0) * 0.0025)
+        confidence = max(0.40, round(confidence - decay, 2))
+
     # ETA = current_time + predicted_remaining_time
     total_remaining_min = max(0, int(round(kinematic_travel_min + predicted_delay)))
     eta_dt = now + timedelta(minutes=total_remaining_min)
@@ -380,6 +407,8 @@ def predict_dynamic_eta(train_state: Dict[str, Any]) -> Dict[str, Any]:
     # Status determination
     if is_stopped:
         status = "STOPPED"
+    elif data_age > 120.0:
+        status = "DEGRADED_TELEMETRY"
     elif predicted_delay > 15:
         status = "DELAYED"
     elif model_name == "CALIBRATED_FALLBACK":
@@ -398,6 +427,8 @@ def predict_dynamic_eta(train_state: Dict[str, Any]) -> Dict[str, Any]:
         "confidence": confidence,
         "prediction_status": status,
         "model_used": model_name,
+        "train_mass_tonnes": mass_tonnes,
+        "track_gradient_pct": gradient_pct,
     }
 
 

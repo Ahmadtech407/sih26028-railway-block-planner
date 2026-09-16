@@ -109,3 +109,62 @@ def test_dynamic_eta_edge_cases():
     fast = ml.predict_dynamic_eta({"distance_remaining_km": 100.0, "speed_kmph": 120.0})
     slow = ml.predict_dynamic_eta({"distance_remaining_km": 100.0, "speed_kmph": 40.0})
     assert slow["predicted_remaining_travel_time"] > fast["predicted_remaining_travel_time"]
+
+
+def test_dynamic_eta_physical_kinematics_and_gradient():
+    # Heavy freight (5200t) on rising gradient (+1.0%) should experience deceleration resistance
+    flat_freight = ml.predict_dynamic_eta({
+        "train_id": "BCNA",
+        "train_mass_tonnes": 5200.0,
+        "track_gradient_pct": 0.0,
+        "speed_kmph": 60.0,
+        "distance_remaining_km": 50.0,
+        "priority": 5,
+    })
+    uphill_freight = ml.predict_dynamic_eta({
+        "train_id": "BCNA",
+        "train_mass_tonnes": 5200.0,
+        "track_gradient_pct": 1.0,
+        "speed_kmph": 60.0,
+        "distance_remaining_km": 50.0,
+        "priority": 5,
+    })
+    assert uphill_freight["predicted_remaining_travel_time"] >= flat_freight["predicted_remaining_travel_time"]
+    assert uphill_freight["train_mass_tonnes"] == 5200.0
+    assert uphill_freight["track_gradient_pct"] == 1.0
+
+
+def test_dynamic_eta_fog_speed_cap():
+    # Clear weather allows high speed 130 km/h; fog caps effective speed to 75 km/h
+    clear = ml.predict_dynamic_eta({
+        "train_id": "22436",
+        "speed_kmph": 130.0,
+        "weather_risk": "LOW",
+        "distance_remaining_km": 100.0,
+    })
+    fog = ml.predict_dynamic_eta({
+        "train_id": "22436",
+        "speed_kmph": 130.0,
+        "weather_risk": "FOG_DENSE",
+        "distance_remaining_km": 100.0,
+    })
+    assert fog["predicted_remaining_travel_time"] > clear["predicted_remaining_travel_time"]
+
+
+def test_dynamic_eta_telemetry_latency_decay():
+    # Telemetry older than 120 seconds enters DEGRADED_TELEMETRY status with decayed confidence
+    fresh = ml.predict_dynamic_eta({
+        "train_id": "12802",
+        "speed_kmph": 90.0,
+        "distance_remaining_km": 60.0,
+        "data_age_seconds": 10.0,
+    })
+    stale = ml.predict_dynamic_eta({
+        "train_id": "12802",
+        "speed_kmph": 90.0,
+        "distance_remaining_km": 60.0,
+        "data_age_seconds": 180.0,
+    })
+    assert stale["confidence"] < fresh["confidence"]
+    assert stale["prediction_status"] == "DEGRADED_TELEMETRY"
+

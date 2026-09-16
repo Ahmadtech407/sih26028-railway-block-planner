@@ -89,6 +89,7 @@ class TrainDetails(BaseModel):
     speed_kmph: float = Field(..., example=112.0)
     direction: TrainDirectionEnum = Field(TrainDirectionEnum.UP, example="UP")
     status: TrainStatusEnum = Field(TrainStatusEnum.ON_TIME, example="ON TIME")
+    section_id: Optional[str] = Field("KNP-PRYJ-SEC-B", example="KNP-PRYJ-SEC-B")
     # Platform management fields
     platform_number: Optional[int] = Field(3, example=3)
     platform_status: Optional[str] = Field("ASSIGNED", example="ASSIGNED")
@@ -212,6 +213,57 @@ class TrainETAPredictionResponse(BaseModel):
     confidence: float = Field(..., description="Prediction confidence score")
     prediction_status: str = Field(..., description="NOMINAL, DELAYED, ARRIVED, STOPPED, or FALLBACK")
     model_used: str = Field("XGBoost", description="Model used for ETA inference")
+
+
+class DataProvenanceEnum(str, Enum):
+    SIMULATED = "SIMULATED"
+    LIVE_GPS = "LIVE_GPS"
+    CALIBRATED_FALLBACK = "CALIBRATED_FALLBACK"
+    HISTORICAL_REPLAY = "HISTORICAL_REPLAY"
+    GOVT_OPEN_FEED = "GOVT_OPEN_FEED"
+
+
+class OperationalModeEnum(str, Enum):
+    ADVISORY_DECISION_SUPPORT = "ADVISORY_DECISION_SUPPORT"
+    SIMULATED_TESTBED = "SIMULATED_TESTBED"
+    OFFLINE_BENCHMARK = "OFFLINE_BENCHMARK"
+
+
+class NormalizedTrainState(BaseModel):
+    train_number: str = Field(..., example="22436")
+    timestamp: str = Field(..., description="ISO 8601 timestamp of observation")
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    current_speed_kmph: float = Field(..., ge=0, le=300)
+    direction: TrainDirectionEnum = TrainDirectionEnum.UP
+    current_station: Optional[str] = None
+    next_station: Optional[str] = None
+    remaining_distance_km: float = Field(0.0, ge=0)
+    current_delay_minutes: int = Field(0, ge=0)
+    track_section: str = Field("KNP-PRYJ-SEC-B")
+    congestion_status: str = Field("LOW", description="LOW, MEDIUM, or HIGH")
+    data_source: DataProvenanceEnum = DataProvenanceEnum.SIMULATED
+    data_confidence: float = Field(1.0, ge=0.0, le=1.0, description="Sensor & telemetry confidence score")
+    stale_status: bool = False
+    train_mass_tonnes: float = Field(1400.0, ge=100.0, le=10000.0, description="Estimated train and rake trailing mass")
+    track_gradient_pct: float = Field(0.0, ge=-5.0, le=5.0, description="Rising (+) or falling (-) track gradient")
+
+
+class OperationalReadinessReport(BaseModel):
+    system_name: str = "RailTrack AI Section Controller & Block Planner"
+    system_version: str = "3.0.0"
+    operational_mode: OperationalModeEnum = OperationalModeEnum.ADVISORY_DECISION_SUPPORT
+    safety_classification: str = "NON_VITAL_ADVISORY_DSS"
+    sil_certification_status: str = "NOT_SIL_CERTIFIED_REQUIRES_HUMAN_IN_THE_LOOP"
+    primary_ml_model: str = "XGBoost Regressor (IR-XGB-DelayPredictor-v3.0)"
+    supported_sections: List[str] = Field(default_factory=lambda: ["KNP-PRYJ-SEC-B", "NDLS-JAT-CORRIDOR"])
+    telemetry_sources_active: List[str] = Field(default_factory=list)
+    human_in_the_loop_mandatory: bool = True
+    disclaimer: str = (
+        "RailTrack is an advisory decision support system designed to assist section controllers. "
+        "It does not operate as an autonomous fail-safe interlocking controller (CENELEC SIL-4) "
+        "and does not directly interface with safety-critical signaling apparatus without human verification."
+    )
 
 
 # ============================================================
