@@ -187,6 +187,33 @@ class TrainPredictionResponse(BaseModel):
     source: str
 
 
+class TrainETAPredictionRequest(BaseModel):
+    train_id: str = Field(..., example="22436")
+    current_station: Optional[str] = None
+    next_station: Optional[str] = None
+    destination: Optional[str] = None
+    position_km: Optional[float] = None
+    destination_km: Optional[float] = None
+    speed_kmph: Optional[float] = None
+    delay_minutes: Optional[int] = 0
+    weather_risk: Optional[str] = "LOW"
+    congestion_level: Optional[str] = "LOW"
+    priority: Optional[int] = 3
+
+
+class TrainETAPredictionResponse(BaseModel):
+    train_id: str
+    current_station: Optional[str] = None
+    next_station: Optional[str] = None
+    destination: Optional[str] = None
+    predicted_remaining_travel_time: int = Field(..., description="Predicted remaining travel time in minutes")
+    predicted_arrival_time: str = Field(..., description="Expected arrival time HH:MM")
+    delay_estimate: int = Field(..., description="Estimated delay in minutes")
+    confidence: float = Field(..., description="Prediction confidence score")
+    prediction_status: str = Field(..., description="NOMINAL, DELAYED, ARRIVED, STOPPED, or FALLBACK")
+    model_used: str = Field("XGBoost", description="Model used for ETA inference")
+
+
 # ============================================================
 # CONFLICT & OPTIMIZER SCHEMAS
 # ============================================================

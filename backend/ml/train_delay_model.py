@@ -2,14 +2,15 @@
 RailTrack Machine Learning Model Training Pipeline
 ==================================================
 Trains and validates production predictive models on real Indian Railways operational data:
-1. Delay Minutes Regressor: Continuous delay prediction in minutes (Gradient Boosting vs Random Forest vs Ridge vs Naive Baseline)
+1. Dynamic Delay / Travel Time Regressor: Continuous delay and remaining travel time prediction via XGBoost
+   (with rigorous benchmark comparison against Random Forest, Gradient Boosting, and Ridge baselines)
 2. Track Congestion Classifier: Section congestion tier classification (LOW / MEDIUM / HIGH)
 
 Strictly adheres to ML best practices:
 - Featurization ordering: Train/Test split BEFORE any encoder or scaler fitting
 - Missing value analysis & contextual imputation
 - Comprehensive metrics: MAE, RMSE, R^2, Macro F1, Precision, Recall, Confusion Matrix
-- Model persistence via joblib into data/models/
+- Model persistence via joblib into data/models/ as delay_regressor.joblib and eta_model.joblib
 """
 
 import json
@@ -21,8 +22,10 @@ from typing import Dict, Any, Tuple
 import numpy as np
 import pandas as pd
 import joblib
+import xgboost
+from xgboost import XGBRegressor
 
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, KFold, StratifiedKFold, cross_val_score
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
@@ -41,6 +44,8 @@ from sklearn.metrics import (
     confusion_matrix,
     classification_report
 )
+
+from backend.ml.feature_engineering import FEATURES_NUM, FEATURES_CAT
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -62,7 +67,7 @@ def load_and_verify_data() -> pd.DataFrame:
     missing = df.isnull().sum()
     missing_cols = missing[missing > 0]
     if not missing_cols.empty:
-        logger.info("Missing values detected:\n%s", missing_cols)
+        logger.info("Missing values detected: %s", missing_cols.to_dict())
     else:
         logger.info("Zero missing values in dataset.")
 
@@ -90,25 +95,15 @@ def create_preprocessor(numeric_features, categorical_features) -> ColumnTransfo
     return preprocessor
 
 
-from sklearn.model_selection import train_test_split, KFold, StratifiedKFold, cross_val_score
-
 def train_delay_regressor(df: pd.DataFrame) -> Tuple[Pipeline, Dict[str, Any]]:
     """
     Train and rigorously compare multiple regression models with 5-fold cross-validation.
-    Models evaluated: Naive Baseline, Ridge Regression, Random Forest, Gradient Boosting.
+    Models evaluated: Naive Baseline, Ridge Regression, Random Forest Baseline, Gradient Boosting, and XGBoost Regressor.
+    Returns the designated production XGBoost pipeline and the complete comparative metrics dictionary.
     """
-    logger.info("--- Starting Delay Regressor Model Comparison with 5-Fold Cross-Validation ---")
+    logger.info("--- Starting Delay / ETA Regressor Model Comparison with 5-Fold Cross-Validation ---")
 
-    features_num = [
-        "priority", "StationOrder", "halt_time_minutes",
-        "distance_travelled_km", "distance_remaining_km", "speed_kmph",
-        "hour_of_day", "is_peak_hour", "is_weekend", "temperature_c",
-        "rainfall_intensity_mmh", "visibility_km", "weather_risk_score",
-        "trains_in_section", "preceding_delay_minutes"
-    ]
-    features_cat = ["TrainType", "DayOfWeek", "Weather"]
-
-    X = df[features_num + features_cat]
+    X = df[FEATURES_NUM + FEATURES_CAT]
     y = df["target_delay_minutes"]
 
     # Strict 80/20 train/test split BEFORE fitting preprocessor
@@ -117,22 +112,29 @@ def train_delay_regressor(df: pd.DataFrame) -> Tuple[Pipeline, Dict[str, Any]]:
     )
     logger.info("Train set: %d samples, Test set: %d samples", len(X_train), len(X_test))
 
-    # Define candidate models
+    # Define candidate models including XGBoost and the Random Forest baseline
     candidates = {
         "Naive Median Baseline": DummyRegressor(strategy="median"),
         "Ridge Linear Regression": Ridge(alpha=1.0),
-        "Random Forest Regressor": RandomForestRegressor(n_estimators=100, max_depth=12, random_state=42, n_jobs=-1),
+        "Random Forest Baseline": RandomForestRegressor(n_estimators=100, max_depth=12, random_state=42, n_jobs=-1),
         "Gradient Boosting Regressor": GradientBoostingRegressor(n_estimators=120, learning_rate=0.08, max_depth=5, random_state=42),
+        "XGBoost Regressor": XGBRegressor(
+            n_estimators=150,
+            max_depth=5,
+            learning_rate=0.08,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            random_state=42,
+            n_jobs=-1,
+        ),
     }
 
     results = {}
-    best_name = None
-    best_pipe = None
-    best_mae = float("inf")
     kf = KFold(n_splits=5, shuffle=True, random_state=42)
+    fitted_pipelines = {}
 
     for name, model in candidates.items():
-        preprocessor = create_preprocessor(features_num, features_cat)
+        preprocessor = create_preprocessor(FEATURES_NUM, FEATURES_CAT)
         pipe = Pipeline([
             ("preprocessor", preprocessor),
             ("model", model),
@@ -157,16 +159,23 @@ def train_delay_regressor(df: pd.DataFrame) -> Tuple[Pipeline, Dict[str, Any]]:
             "CV_5Fold_MAE": cv_mae,
             "CV_5Fold_Std": cv_std,
         }
+        fitted_pipelines[name] = pipe
         logger.info("Candidate [%s] -> Test MAE: %.2f min | 5-Fold CV MAE: %.2f±%.2f | R^2: %.3f", name, mae, cv_mae, cv_std, r2)
 
-        if mae < best_mae:
-            best_mae = mae
-            best_name = name
-            best_pipe = pipe
+    # Primary production model is XGBoost Regressor
+    xgb_pipe = fitted_pipelines["XGBoost Regressor"]
+    xgb_mae = results["XGBoost Regressor"]["MAE_minutes"]
+    rf_mae = results["Random Forest Baseline"]["MAE_minutes"]
 
-    logger.info("Winner Regressor: %s (Test MAE=%.2f min)", best_name, best_mae)
-    results["best_model"] = best_name
-    return best_pipe, results
+    logger.info("XGBoost Regressor Test MAE: %.3f min vs Random Forest Baseline: %.3f min", xgb_mae, rf_mae)
+    results["primary_model"] = "XGBoost Regressor"
+    results["rf_vs_xgb_comparison"] = {
+        "rf_test_mae": rf_mae,
+        "xgb_test_mae": xgb_mae,
+        "improvement_pct": round(((rf_mae - xgb_mae) / max(0.001, rf_mae)) * 100.0, 2) if rf_mae > 0 else 0.0,
+    }
+
+    return xgb_pipe, results
 
 
 def train_congestion_classifier(df: pd.DataFrame) -> Tuple[Pipeline, Dict[str, Any]]:
@@ -254,34 +263,38 @@ def save_models(
     delay_metrics: Dict[str, Any],
     congestion_metrics: Dict[str, Any]
 ) -> None:
-    """Serialize trained pipelines and export model metadata."""
+    """Serialize trained XGBoost pipeline and export model metadata."""
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
     delay_path = MODELS_DIR / "delay_regressor.joblib"
+    eta_path = MODELS_DIR / "eta_model.joblib"
     congestion_path = MODELS_DIR / "congestion_classifier.joblib"
     meta_path = MODELS_DIR / "model_metadata.json"
 
     logger.info("Saving models to %s...", MODELS_DIR)
     joblib.dump(delay_pipe, delay_path)
+    joblib.dump(delay_pipe, eta_path)
     joblib.dump(congestion_pipe, congestion_path)
 
     metadata = {
-        "version": "IR-GBM-DelayPredictor-v2.0",
+        "version": "IR-XGB-DelayPredictor-v3.0",
         "trained_at": datetime.now(timezone.utc).isoformat(),
         "training_dataset": str(DATA_PATH.name),
+        "primary_eta_model": "XGBoost Regressor",
         "delay_regression": delay_metrics,
         "congestion_classification": congestion_metrics,
         "frameworks": {
+            "xgboost": getattr(xgboost, "__version__", "3.4.1"),
             "scikit-learn": joblib.__version__,
             "joblib": joblib.__version__,
         }
     }
     meta_path.write_text(json.dumps(metadata, indent=2))
-    logger.info("Model artifacts & metadata saved successfully.")
+    logger.info("Model artifacts (delay_regressor.joblib, eta_model.joblib) & metadata saved successfully.")
 
 
 def main():
-    logger.info("=== Starting RailTrack ML Model Training ===")
+    logger.info("=== Starting RailTrack XGBoost ML Model Training ===")
     df = load_and_verify_data()
 
     delay_pipe, delay_metrics = train_delay_regressor(df)
@@ -289,13 +302,13 @@ def main():
 
     save_models(delay_pipe, congestion_pipe, delay_metrics, congestion_metrics)
 
-    print("\n" + "=" * 60)
-    print("TRAINING RUN COMPLETE")
     print("=" * 60)
-    print("Delay Regression Results:")
+    print("TRAINING RUN COMPLETE (XGBoost v3.0)")
+    print("=" * 60)
+    print("Delay / ETA Regression Results:")
     for k, v in delay_metrics.items():
         print(f"  {k}: {v}")
-    print("\nCongestion Classification Results:")
+    print("Congestion Classification Results:")
     for k, v in congestion_metrics.items():
         print(f"  {k}: {v}")
     print("=" * 60)

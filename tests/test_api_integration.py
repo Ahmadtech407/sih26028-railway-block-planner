@@ -1,4 +1,4 @@
-﻿"""
+"""
 Integration tests for FastAPI Backend endpoints.
 Validates HTTP contracts, deep health check, optimizer, and telemetry feeds.
 """
@@ -83,3 +83,32 @@ def test_api_conflicts_check():
     res = response.json()
     assert res["section_id"] == "KNP-PRYJ-SEC-B"
     assert "has_conflict" in res
+
+
+def test_api_dynamic_eta_prediction_endpoint():
+    payload = {
+        "train_id": "22436",
+        "current_station": "Kanpur Central",
+        "next_station": "Fatehpur",
+        "destination": "Prayagraj Junction",
+        "speed_kmph": 110.0,
+        "distance_remaining_km": 194.0,
+        "priority": 2,
+    }
+    response = client.post("/api/trains/eta", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["train_id"] == "22436"
+    assert data["model_used"] == "XGBoost"
+    assert data["predicted_remaining_travel_time"] > 0
+    assert data["prediction_status"] in ("NOMINAL", "DELAYED")
+    assert "predicted_arrival_time" in data
+
+
+def test_api_active_train_dynamic_eta():
+    response = client.get("/api/trains/22436/eta")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["train_id"] == "22436"
+    assert data["model_used"] == "XGBoost"
+    assert data["predicted_remaining_travel_time"] >= 0

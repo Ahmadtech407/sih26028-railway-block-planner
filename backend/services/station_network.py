@@ -387,6 +387,20 @@ def resolve_station_route(
     next_eta_min = max(1, round((next_km / eff_speed) * 60))
     dest_eta_min = max(2, round((remaining_km / eff_speed) * 60))
 
+    # Dynamic ML-enhanced destination ETA using XGBoost
+    try:
+        from backend.services import ml_prediction_service as ml
+        dyn_eta = ml.predict_dynamic_eta({
+            "position_km": covered_km,
+            "destination_km": total_km,
+            "distance_remaining_km": remaining_km,
+            "speed_kmph": eff_speed,
+            "priority": 2,
+        })
+        dynamic_eta_min = int(dyn_eta.get("predicted_remaining_travel_time") or dest_eta_min)
+    except Exception:
+        dynamic_eta_min = dest_eta_min
+
     # Formulate location and weather targets
     if 5.0 < pct < 95.0 and prev_stop["name"] != next_stop["name"]:
         current_display = f"Between {prev_stop['name']} & {next_stop['name']}"
@@ -430,6 +444,7 @@ def resolve_station_route(
         "next_station_distance_km": next_km,
         "next_station_eta_min": next_eta_min,
         "destination_eta_min": dest_eta_min,
+        "dynamic_eta_min": dynamic_eta_min,
         "current_station_display": current_display,
         "weather_coords": weather_coords,
         "scheduled_arrival": scheduled_arr_time.strftime("%H:%M"),

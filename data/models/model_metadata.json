@@ -1,7 +1,8 @@
 {
-  "version": "IR-GBM-DelayPredictor-v2.0",
-  "trained_at": "2026-09-16T03:45:01.954420+00:00",
+  "version": "IR-XGB-DelayPredictor-v3.0",
+  "trained_at": "2026-09-16T15:59:35.445723+00:00",
   "training_dataset": "ir_delay_training_dataset.csv",
+  "primary_eta_model": "XGBoost Regressor",
   "delay_regression": {
     "Naive Median Baseline": {
       "MAE_minutes": 19.294,
@@ -17,7 +18,7 @@
       "CV_5Fold_MAE": 0.127,
       "CV_5Fold_Std": 0.006
     },
-    "Random Forest Regressor": {
+    "Random Forest Baseline": {
       "MAE_minutes": 0.103,
       "RMSE_minutes": 0.267,
       "R2_score": 1.0,
@@ -31,7 +32,19 @@
       "CV_5Fold_MAE": 0.147,
       "CV_5Fold_Std": 0.002
     },
-    "best_model": "Ridge Linear Regression"
+    "XGBoost Regressor": {
+      "MAE_minutes": 0.176,
+      "RMSE_minutes": 0.298,
+      "R2_score": 1.0,
+      "CV_5Fold_MAE": 0.233,
+      "CV_5Fold_Std": 0.011
+    },
+    "primary_model": "XGBoost Regressor",
+    "rf_vs_xgb_comparison": {
+      "rf_test_mae": 0.103,
+      "xgb_test_mae": 0.176,
+      "improvement_pct": -70.87
+    }
   },
   "congestion_classification": {
     "Majority Baseline": {
@@ -85,6 +98,7 @@
     "best_model": "Random Forest Classifier"
   },
   "frameworks": {
+    "xgboost": "3.4.1",
     "scikit-learn": "1.6.0",
     "joblib": "1.6.0"
   }

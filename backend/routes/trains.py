@@ -10,6 +10,8 @@ from backend.schemas.api_models import (
     TrainDetails,
     TrainPredictionRequest,
     TrainPredictionResponse,
+    TrainETAPredictionRequest,
+    TrainETAPredictionResponse,
     TrainTelemetryIngestRequest,
     TrainTelemetryIngestResponse,
 )
@@ -20,6 +22,7 @@ from backend.services.train_service import (
     ingest_train_telemetry,
     LIVE_TRAINS_DB,
 )
+from backend.services import ml_prediction_service as ml
 from backend.services import supabase_train_store as supa_store
 
 router = APIRouter(prefix="/trains", tags=["Trains & Telemetry"])
@@ -53,6 +56,33 @@ async def predict_position(request: TrainPredictionRequest):
     if not prediction:
         raise HTTPException(status_code=404, detail=f"Train '{request.train_number}' not found.")
     return prediction
+
+
+@router.post("/eta", response_model=TrainETAPredictionResponse, summary="Predict dynamic ETA using XGBoost")
+async def predict_dynamic_eta_endpoint(request: TrainETAPredictionRequest):
+    """
+    Computes dynamic ML-driven remaining travel time and arrival ETA
+    using the production XGBoost regressor model with robust fallbacks.
+    """
+    res = ml.predict_dynamic_eta(request.model_dump())
+    return TrainETAPredictionResponse(**res)
+
+
+@router.get("/{train_number}/eta", response_model=TrainETAPredictionResponse, summary="Get dynamic XGBoost ETA for train")
+async def get_dynamic_train_eta(train_number: str):
+    """Retrieve dynamic XGBoost ETA prediction for any active train."""
+    train = get_train_by_number(train_number)
+    state = {
+        "train_id": train_number,
+        "current_station": getattr(train, "current_station", None) if train else None,
+        "next_station": getattr(train, "next_station", None) if train else None,
+        "speed_kmph": getattr(train, "speed_kmph", 80.0) if train else 80.0,
+        "position_km": getattr(train, "position_km", None) if train else None,
+        "delay_minutes": getattr(train, "delay_minutes", 0) if train else 0,
+        "priority": getattr(train, "priority", 3) if train else 3,
+    }
+    res = ml.predict_dynamic_eta(state)
+    return TrainETAPredictionResponse(**res)
 
 
 @router.post("/telemetry", response_model=TrainTelemetryIngestResponse, summary="Ingest GPS train telemetry")

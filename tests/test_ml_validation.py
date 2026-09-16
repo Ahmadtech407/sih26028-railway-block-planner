@@ -1,18 +1,22 @@
-﻿"""
-Validation tests for Trained Machine Learning Delay & Congestion Models.
-Verifies model serialization, 5-fold cross-validation metrics, probability extraction, and fallback mechanisms.
+"""
+Validation tests for Trained Machine Learning XGBoost Delay & Dynamic ETA Models.
+Verifies model serialization, 5-fold cross-validation metrics, probability extraction,
+feature engineering, dynamic ETA calculation, and fallback mechanisms.
 """
 
 import pytest
 from backend.services import ml_prediction_service as ml
+from backend.ml.feature_engineering import create_eta_features
 
 
 def test_model_metadata_and_5fold_cv():
     info = ml.get_model_info()
     assert info["status"] == "LOADED"
-    assert "IR-GBM-DelayPredictor-v2.0" in info["model_version"]
+    assert "IR-XGB-DelayPredictor-v3.0" in info["model_version"]
+    assert "XGBoost" in info["primary_eta_model"]
     assert info["congestion_accuracy"] >= 0.90
     assert info["congestion_classification_f1"] >= 0.90
+    assert info["delay_regression_mae"] <= 1.0
 
 
 def test_predict_congestion_with_probability():
@@ -44,3 +48,64 @@ def test_delay_prediction_bounds_and_regulation():
     )
     assert isinstance(delay_bad_weather, int)
     assert delay_bad_weather >= 10  # Delay increases under extreme conditions
+
+
+def test_feature_engineering_pipeline():
+    # Test with standard state
+    df = create_eta_features({
+        "current_speed": 110.0,
+        "distance_remaining": 150.0,
+        "priority": 2,
+        "weather": "Rainy",
+    })
+    assert len(df) == 1
+    assert df["speed_kmph"].iloc[0] == 110.0
+    assert df["distance_remaining_km"].iloc[0] == 150.0
+    assert df["Weather"].iloc[0] == "Rainy"
+
+    # Test with completely missing/empty state (safe imputation)
+    df_empty = create_eta_features({})
+    assert len(df_empty) == 1
+    assert not df_empty.isnull().any().any()
+
+
+def test_dynamic_eta_prediction_structure():
+    res = ml.predict_dynamic_eta({
+        "train_id": "22436",
+        "current_station": "Kanpur Central",
+        "destination": "Prayagraj Junction",
+        "speed_kmph": 100.0,
+        "distance_remaining_km": 200.0,
+        "priority": 2,
+    })
+    assert res["train_id"] == "22436"
+    assert res["predicted_remaining_travel_time"] > 0
+    assert res["model_used"] == "XGBoost"
+    assert res["prediction_status"] in ("NOMINAL", "DELAYED")
+    assert ":" in res["predicted_arrival_time"]
+
+
+def test_dynamic_eta_edge_cases():
+    # 1. Train at destination -> 0 remaining time
+    res_arrived = ml.predict_dynamic_eta({
+        "train_id": "12301",
+        "distance_remaining_km": 0.0,
+        "speed_kmph": 0.0,
+    })
+    assert res_arrived["predicted_remaining_travel_time"] == 0
+    assert res_arrived["prediction_status"] == "ARRIVED"
+
+    # 2. Unexpected stop -> STOPPED status and extra dwell delay
+    res_stopped = ml.predict_dynamic_eta({
+        "train_id": "12301",
+        "distance_remaining_km": 100.0,
+        "speed_kmph": 0.0,
+        "current_delay": 5,
+    })
+    assert res_stopped["prediction_status"] == "STOPPED"
+    assert res_stopped["predicted_remaining_travel_time"] > 0
+
+    # 3. Dynamic adjustment: slower speed results in longer remaining travel time
+    fast = ml.predict_dynamic_eta({"distance_remaining_km": 100.0, "speed_kmph": 120.0})
+    slow = ml.predict_dynamic_eta({"distance_remaining_km": 100.0, "speed_kmph": 40.0})
+    assert slow["predicted_remaining_travel_time"] > fast["predicted_remaining_travel_time"]

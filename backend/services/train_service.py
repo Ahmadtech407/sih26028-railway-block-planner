@@ -235,8 +235,8 @@ def _with_telemetry_fields(data: Dict[str, Any], now: datetime, source: str) -> 
                 predicted_congestion_level=str(congestion),
                 congestion_probability=congestion_prob,
                 confidence_score=0.96,
-                model_name="RidgeLinearRegressor_v2" if priority <= 2 else "RandomForest_v2",
-                model_version="2.0.0",
+                model_name="XGBoost_v3",
+                model_version="3.0.0",
             )
         except Exception:
             pass
