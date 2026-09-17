@@ -15,9 +15,9 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.9
       - key: SUPABASE_URL
-        sync: false
+        value: ""
       - key: SUPABASE_SERVICE_ROLE_KEY
-        sync: false
+        value: ""
       - key: RAIL_API_PROVIDER
         value: RAPIDAPI_IRCTC
       - key: RAPIDAPI_HOST
