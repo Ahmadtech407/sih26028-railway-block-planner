@@ -73,6 +73,10 @@ class SectionWeather(BaseModel):
     station_name: Optional[str] = Field("Kanpur Central - Prayagraj", description="Station or region name")
     weather_age: Optional[int] = Field(0, description="Age of weather observation in seconds")
     weather_confidence: Optional[float] = Field(0.95, description="Observation reliability score 0.0 to 1.0")
+    imd_color_code: Optional[str] = Field("GREEN", description="IMD standard color alert: GREEN, YELLOW, ORANGE, RED")
+    imd_alert_level: Optional[str] = Field("NO_WARNING", description="IMD alert description: NO_WARNING, WATCH, ALERT, WARNING")
+    imd_station_id: Optional[str] = Field(None, description="IMD official meteorological observatory station ID")
+    imd_advisory: Optional[str] = Field(None, description="IMD railway operations safety advisory")
 
 
 # ============================================================
@@ -229,6 +233,9 @@ class ModelPerformanceResponse(BaseModel):
     models: Optional[Dict[str, Any]] = None
     ensemble_improved_over_best: Optional[bool] = None
     training_timestamp: Optional[str] = None
+    dataset_hash: Optional[str] = None
+    target_variable: Optional[str] = None
+    data_honesty_statement: Optional[str] = None
 
 
 class DataProvenanceEnum(str, Enum):

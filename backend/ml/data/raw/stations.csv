@@ -1,0 +1,54 @@
+StationID,StationName,City,Latitude,Longitude,Zone,PlatformCount
+ST001,New Delhi Railway Station,New Delhi,28.6431,77.2197,Northern,16
+ST002,Mumbai Central,Mumbai,18.9685,72.8205,Western,8
+ST003,Howrah Junction,Kolkata,22.5826,88.3463,Eastern,23
+ST004,Chennai Central,Chennai,13.0827,80.2707,Southern,12
+ST005,Bengaluru City,Bengaluru,12.9767,77.5644,South Western,10
+ST006,Secunderabad Junction,Hyderabad,17.4343,78.4591,South Central,10
+ST007,Pune Junction,Pune,18.5293,73.8711,Central,8
+ST008,Ahmedabad Junction,Ahmedabad,23.0225,72.5714,Western,12
+ST009,Jaipur Junction,Jaipur,26.9124,75.7873,North Western,6
+ST010,Lucknow Charbagh,Lucknow,26.8393,80.9222,Northern,9
+ST011,Kanpur Central,Kanpur,26.4548,80.3319,North Central,10
+ST012,Nagpur Junction,Nagpur,21.1458,79.0816,Central,12
+ST013,Bhopal Junction,Bhopal,23.2599,77.4126,West Central,10
+ST014,Patna Junction,Patna,25.6096,85.1247,East Central,10
+ST015,Varanasi Junction,Varanasi,25.3173,82.9739,Northern,9
+ST016,Amritsar Junction,Amritsar,31.6340,74.8623,Northern,6
+ST017,Chandigarh Junction,Chandigarh,30.7011,76.7803,Northern,4
+ST018,Guwahati Junction,Guwahati,26.1445,91.7425,Northeast Frontier,8
+ST019,Thiruvananthapuram,Trivandrum,8.4909,76.9692,Southern,6
+ST020,Coimbatore Junction,Coimbatore,11.0168,76.9558,Southern,6
+ST021,Vijayawada Junction,Vijayawada,16.5062,80.6480,South Central,10
+ST022,Visakhapatnam Junction,Visakhapatnam,17.6868,83.2185,East Coast,8
+ST023,Bhubaneswar Junction,Bhubaneswar,20.2961,85.8245,East Coast,8
+ST024,Rourkela Junction,Rourkela,22.2604,84.8536,South Eastern,6
+ST025,Tatanagar Junction,Jamshedpur,22.8046,86.1826,South Eastern,6
+ST026,Dhanbad Junction,Dhanbad,23.7957,86.4303,East Central,8
+ST027,Gaya Junction,Gaya,24.7914,84.9933,East Central,6
+ST028,Mughal Sarai Junction,Mughal Sarai,25.2937,83.1318,Northern,8
+ST029,Allahabad Junction,Prayagraj,25.4358,81.8463,North Central,8
+ST030,Agra Cantt,Agra,27.1767,78.0081,North Central,6
+ST031,Gwalior Junction,Gwalior,26.2177,78.1772,North Central,6
+ST032,Jhansi Junction,Jhansi,25.4484,78.5713,North Central,8
+ST033,Mathura Junction,Mathura,27.4924,77.6734,North Central,6
+ST034,Firozpur Cantt,Firozpur,30.9334,74.6213,Northern,4
+ST035,Ludhiana Junction,Ludhiana,30.9098,75.8537,Northern,6
+ST036,Jalandhar City,Jalandhar,31.3262,75.5716,Northern,4
+ST037,Pathankot Junction,Pathankot,32.2747,75.6527,Northern,4
+ST038,Udaipur City,Udaipur,24.5812,73.6827,North Western,4
+ST039,Jodhpur Junction,Jodhpur,26.2389,73.0243,North Western,6
+ST040,Jaisalmer Junction,Jaisalmer,26.9157,70.9083,North Western,3
+ST041,Bikaner Junction,Bikaner,28.0229,73.3119,North Western,4
+ST042,Ajmer Junction,Ajmer,26.4521,74.6386,North Western,4
+ST043,Aligarh Junction,Aligarh,27.8806,78.0771,Northern,4
+ST044,Bareilly Junction,Bareilly,28.3615,79.4244,Northern,4
+ST045,Moradabad Junction,Moradabad,28.8397,78.7734,Northern,4
+ST046,Saharanpur Junction,Saharanpur,29.9650,77.5450,Northern,4
+ST047,Dehradun Junction,Dehradun,30.3165,78.0322,Northern,4
+ST048,Haridwar Junction,Haridwar,29.9458,78.1642,Northern,4
+ST049,Rishikesh Junction,Rishikesh,30.0869,78.2673,Northern,3
+ST050,Katra Junction,Katra,32.9834,74.9530,Northern,3
+ST051,Mysore Junction,Mysore,12.2958,76.6394,South Western,5
+ST052,Hassan Junction,Hassan,13.0072,76.0962,South Western,4
+ST053,Shivamogga Town,Shivamogga,13.9299,75.5681,South Western,3

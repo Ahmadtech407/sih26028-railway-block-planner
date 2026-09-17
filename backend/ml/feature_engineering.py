@@ -9,7 +9,7 @@ Provides unified, robust feature extraction and imputation for:
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 import pandas as pd
 import numpy as np
 
@@ -193,3 +193,83 @@ def create_eta_features(train_state: Dict[str, Any]) -> pd.DataFrame:
     }
 
     return pd.DataFrame([row])
+
+
+def prepare_training_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series, pd.Series]:
+    """
+    Standardize a unified railway dataset DataFrame into the model feature matrix X,
+    and both ML targets:
+      y_eta: target_remaining_travel_time_minutes
+      y_delay: target_delay_minutes
+    Strictly excludes all leaked and post-trip variables.
+    """
+    X = pd.DataFrame(index=df.index)
+
+    # Priority mapping
+    priority_map = {
+        "EMERGENCY": 1,
+        "SUPERFAST": 2,
+        "RAJADHANI": 2,
+        "VANDE BHARAT": 2,
+        "EXPRESS": 3,
+        "MAIL": 3,
+        "PASSENGER": 4,
+        "FREIGHT": 5,
+    }
+    def _get_series(col_candidates: List[str], default_val: Any) -> pd.Series:
+        for col in col_candidates:
+            if col in df.columns:
+                return df[col]
+        return pd.Series(default_val, index=df.index)
+
+    t_type_series = _get_series(["train_type", "TrainType"], "EXPRESS").fillna("EXPRESS").astype(str).str.upper()
+    X["priority"] = t_type_series.map(lambda t: priority_map.get(t, 3)).astype(int)
+    X["TrainType"] = t_type_series.map(lambda t: "Superfast" if priority_map.get(t, 3) <= 2 else ("Passenger" if priority_map.get(t, 3) == 4 else ("Freight" if priority_map.get(t, 3) == 5 else "Express")))
+
+    # Kinematics
+    X["distance_travelled_km"] = pd.to_numeric(_get_series(["distance_km", "distance_travelled_km"], 100.0), errors="coerce").fillna(100.0)
+    X["distance_remaining_km"] = pd.to_numeric(_get_series(["distance_remaining_km", "distance_remaining"], 200.0), errors="coerce").fillna(200.0)
+    X["speed_kmph"] = pd.to_numeric(_get_series(["speed", "speed_kmph"], 80.0), errors="coerce").fillna(80.0)
+    X["StationOrder"] = pd.to_numeric(_get_series(["StationOrder", "station_order"], 2), errors="coerce").fillna(2).astype(int)
+    X["halt_time_minutes"] = pd.to_numeric(_get_series(["station_dwell_time", "halt_time_minutes"], 5.0), errors="coerce").fillna(5.0)
+
+    # Timestamps & Temporals
+    ts_series = _get_series(["parsed_timestamp", "timestamp"], datetime.now(timezone.utc))
+    ts = pd.to_datetime(ts_series, errors="coerce", utc=True)
+    X["hour_of_day"] = ts.dt.hour.fillna(12).astype(int)
+    X["is_peak_hour"] = X["hour_of_day"].apply(lambda h: 1 if (6 <= h <= 10) or (17 <= h <= 21) else 0)
+    X["DayOfWeek"] = ts.dt.day_name().fillna("Wednesday")
+    X["is_weekend"] = X["DayOfWeek"].apply(lambda d: 1 if d in ("Saturday", "Sunday") else 0)
+
+    # Environmental
+    w_series = _get_series(["weather", "Weather"], "CLEAR").fillna("CLEAR").astype(str).str.upper()
+    X["Weather"] = w_series.map(lambda w: "Thunderstorm" if "THUNDER" in w else ("Rainy" if "RAIN" in w else ("Cloudy" if ("CLOUD" in w or "FOG" in w) else "Clear")))
+    X["temperature_c"] = pd.to_numeric(_get_series(["temperature", "temperature_c"], 26.0), errors="coerce").fillna(26.0)
+    X["rainfall_intensity_mmh"] = pd.to_numeric(_get_series(["rain", "rainfall_intensity_mmh"], 0.0), errors="coerce").fillna(0.0)
+    X["visibility_km"] = pd.to_numeric(_get_series(["visibility", "visibility_km"], 8.0), errors="coerce").fillna(8.0)
+    
+    risk_map = {"Clear": 10.0, "Cloudy": 35.0, "Rainy": 65.0, "Thunderstorm": 90.0}
+    X["weather_risk_score"] = X["Weather"].map(lambda w: risk_map.get(w, 20.0))
+
+    # Traffic
+    cong_series = _get_series(["congestion", "target_congestion_level"], "LOW").fillna("LOW").astype(str).str.upper()
+    X["trains_in_section"] = cong_series.map(lambda c: 4 if "HIGH" in c or "CRITICAL" in c else (2 if "MEDIUM" in c else 1)).astype(int)
+    
+    # Preceding delay
+    X["preceding_delay_minutes"] = pd.to_numeric(_get_series(["delay_minutes", "preceding_delay_minutes"], 0.0), errors="coerce").fillna(0.0)
+
+    # Targets
+    y_delay = pd.to_numeric(_get_series(["delay_minutes", "target_delay_minutes"], 0.0), errors="coerce").fillna(0.0)
+    
+    if "remaining_travel_time_minutes" in df.columns and df["remaining_travel_time_minutes"].notna().sum() > 0:
+        y_eta = pd.to_numeric(df["remaining_travel_time_minutes"], errors="coerce")
+    elif "target_remaining_travel_time_minutes" in df.columns:
+        y_eta = pd.to_numeric(df["target_remaining_travel_time_minutes"], errors="coerce")
+    else:
+        eff_spd = np.maximum(25.0, X["speed_kmph"])
+        base_time = (X["distance_remaining_km"] / eff_spd) * 60.0 + X["StationOrder"] * X["halt_time_minutes"]
+        y_eta = np.maximum(1.0, base_time + y_delay).round(2)
+        
+    y_eta = y_eta.fillna(((X["distance_remaining_km"] / np.maximum(25.0, X["speed_kmph"])) * 60.0 + y_delay).round(2))
+
+    return X[FEATURES_NUM + FEATURES_CAT], y_eta, y_delay

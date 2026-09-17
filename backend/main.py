@@ -25,6 +25,7 @@ from backend.routes.ai_agent import router as ai_router
 from backend.routes.intelligence import router as intelligence_router
 from backend.routes.auth import router as auth_router
 from backend.routes.tickets import router as tickets_router
+from backend.routes.pnr import router as pnr_router
 from backend.database import init_database
 from backend.schemas.api_models import OperationalReadinessReport
 from backend.websocket import ws_manager
@@ -153,6 +154,7 @@ app.include_router(auth_router, prefix="/api")
 
 # Ticket Scanner & PNR Verification router
 app.include_router(tickets_router, prefix="/api")
+app.include_router(pnr_router, prefix="/api")
 
 
 # -------------------------------------------------------------------

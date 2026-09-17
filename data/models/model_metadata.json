@@ -1,105 +1,157 @@
 {
-  "version": "IR-XGB-DelayPredictor-v3.0",
-  "trained_at": "2026-09-16T15:59:35.445723+00:00",
-  "training_dataset": "ir_delay_training_dataset.csv",
-  "primary_eta_model": "XGBoost Regressor",
-  "delay_regression": {
-    "Naive Median Baseline": {
-      "MAE_minutes": 19.294,
-      "RMSE_minutes": 25.076,
-      "R2_score": -0.001,
-      "CV_5Fold_MAE": 18.881,
-      "CV_5Fold_Std": 0.306
+  "model_version": "IR-MultiModel-ETA-v3.3",
+  "training_date": "2026-09-16T21:16:43.698103+00:00",
+  "dataset_version": "public_unified_v1.0",
+  "dataset_hash": "d425e261dba8b6b1",
+  "feature_list": [
+    "priority",
+    "StationOrder",
+    "halt_time_minutes",
+    "distance_travelled_km",
+    "distance_remaining_km",
+    "speed_kmph",
+    "hour_of_day",
+    "is_peak_hour",
+    "is_weekend",
+    "temperature_c",
+    "rainfall_intensity_mmh",
+    "visibility_km",
+    "weather_risk_score",
+    "trains_in_section",
+    "preceding_delay_minutes",
+    "TrainType",
+    "DayOfWeek",
+    "Weather"
+  ],
+  "training_rows": 1593,
+  "validation_rows": 341,
+  "test_rows": 342,
+  "split_metadata": {
+    "split_method": "STRICT_CHRONOLOGICAL_TEMPORAL",
+    "total_rows": 2276,
+    "train_rows": 1593,
+    "val_rows": 341,
+    "test_rows": 342,
+    "train_date_range": [
+      "2023-06-15",
+      "2024-09-01"
+    ],
+    "val_date_range": [
+      "2024-09-01",
+      "2024-11-03"
+    ],
+    "test_date_range": [
+      "2024-11-03",
+      "2024-12-28"
+    ]
+  },
+  "models": {
+    "XGBoost": {
+      "MAE": 1.935,
+      "RMSE": 2.571,
+      "R2": 0.999,
+      "CV_5Fold_MAE": 5.606,
+      "CV_5Fold_Std": 1.339,
+      "median_absolute_error": 1.406,
+      "p95_absolute_error": 5.216,
+      "error_distribution": {
+        "pct_le_2min": 64.9,
+        "pct_le_5min": 94.2,
+        "pct_le_10min": 100.0,
+        "pct_gt_10min": 0.0
+      }
     },
-    "Ridge Linear Regression": {
-      "MAE_minutes": 0.101,
-      "RMSE_minutes": 0.38,
-      "R2_score": 1.0,
-      "CV_5Fold_MAE": 0.127,
-      "CV_5Fold_Std": 0.006
+    "Random Forest": {
+      "MAE": 1.536,
+      "RMSE": 2.645,
+      "R2": 0.9989,
+      "CV_5Fold_MAE": 4.193,
+      "CV_5Fold_Std": 1.068,
+      "median_absolute_error": 0.828,
+      "p95_absolute_error": 5.163,
+      "error_distribution": {
+        "pct_le_2min": 76.9,
+        "pct_le_5min": 94.2,
+        "pct_le_10min": 98.5,
+        "pct_gt_10min": 1.5
+      }
     },
-    "Random Forest Baseline": {
-      "MAE_minutes": 0.103,
-      "RMSE_minutes": 0.267,
-      "R2_score": 1.0,
-      "CV_5Fold_MAE": 0.162,
-      "CV_5Fold_Std": 0.015
+    "SVR": {
+      "MAE": 10.52,
+      "RMSE": 16.296,
+      "R2": 0.9595,
+      "CV_5Fold_MAE": 42.531,
+      "CV_5Fold_Std": 10.472,
+      "median_absolute_error": 6.456,
+      "p95_absolute_error": 36.259,
+      "error_distribution": {
+        "pct_le_2min": 16.1,
+        "pct_le_5min": 40.1,
+        "pct_le_10min": 64.3,
+        "pct_gt_10min": 35.7
+      }
     },
-    "Gradient Boosting Regressor": {
-      "MAE_minutes": 0.116,
-      "RMSE_minutes": 0.274,
-      "R2_score": 1.0,
-      "CV_5Fold_MAE": 0.147,
-      "CV_5Fold_Std": 0.002
+    "Gradient Boosting": {
+      "MAE": 1.95,
+      "RMSE": 2.633,
+      "R2": 0.9989,
+      "CV_5Fold_MAE": 4.149,
+      "CV_5Fold_Std": 1.189,
+      "median_absolute_error": 1.406,
+      "p95_absolute_error": 5.509,
+      "error_distribution": {
+        "pct_le_2min": 62.9,
+        "pct_le_5min": 92.1,
+        "pct_le_10min": 100.0,
+        "pct_gt_10min": 0.0
+      }
     },
-    "XGBoost Regressor": {
-      "MAE_minutes": 0.176,
-      "RMSE_minutes": 0.298,
-      "R2_score": 1.0,
-      "CV_5Fold_MAE": 0.233,
-      "CV_5Fold_Std": 0.011
+    "Decision Tree": {
+      "MAE": 3.491,
+      "RMSE": 4.996,
+      "R2": 0.9962,
+      "CV_5Fold_MAE": 6.673,
+      "CV_5Fold_Std": 1.614,
+      "median_absolute_error": 2.357,
+      "p95_absolute_error": 10.734,
+      "error_distribution": {
+        "pct_le_2min": 43.0,
+        "pct_le_5min": 76.3,
+        "pct_le_10min": 94.7,
+        "pct_gt_10min": 5.3
+      }
     },
-    "primary_model": "XGBoost Regressor",
-    "rf_vs_xgb_comparison": {
-      "rf_test_mae": 0.103,
-      "xgb_test_mae": 0.176,
-      "improvement_pct": -70.87
+    "Ensemble": {
+      "MAE": 1.432,
+      "RMSE": 2.346,
+      "R2": 0.9992,
+      "median_absolute_error": 0.843,
+      "p95_absolute_error": 4.789,
+      "error_distribution": {
+        "pct_le_2min": 77.8,
+        "pct_le_5min": 95.9,
+        "pct_le_10min": 99.1,
+        "pct_gt_10min": 0.9
+      },
+      "weights": {
+        "XGBoost": 0.2107,
+        "Random Forest": 0.7893,
+        "SVR": 0.0,
+        "Gradient Boosting": 0.0,
+        "Decision Tree": 0.0
+      }
     }
   },
-  "congestion_classification": {
-    "Majority Baseline": {
-      "Accuracy": 0.862,
-      "Macro_F1": 0.309,
-      "Precision": 0.287,
-      "Recall": 0.333,
-      "CV_5Fold_Macro_F1": 0.309,
-      "CV_5Fold_Std": 0.0
-    },
-    "Random Forest Classifier": {
-      "Accuracy": 0.993,
-      "Macro_F1": 0.972,
-      "Precision": 0.974,
-      "Recall": 0.971,
-      "CV_5Fold_Macro_F1": 0.956,
-      "CV_5Fold_Std": 0.029
-    },
-    "Gradient Boosting Classifier": {
-      "Accuracy": 0.991,
-      "Macro_F1": 0.954,
-      "Precision": 0.954,
-      "Recall": 0.954,
-      "CV_5Fold_Macro_F1": 0.959,
-      "CV_5Fold_Std": 0.022
-    },
-    "confusion_matrix": {
-      "labels": [
-        "LOW",
-        "MEDIUM",
-        "HIGH"
-      ],
-      "matrix": [
-        [
-          25,
-          0,
-          0
-        ],
-        [
-          2,
-          32,
-          1
-        ],
-        [
-          0,
-          0,
-          375
-        ]
-      ]
-    },
-    "best_model": "Random Forest Classifier"
+  "best_individual_model": "Random Forest",
+  "ensemble_weights": {
+    "XGBoost": 0.2107,
+    "Random Forest": 0.7893,
+    "SVR": 0.0,
+    "Gradient Boosting": 0.0,
+    "Decision Tree": 0.0
   },
-  "frameworks": {
-    "xgboost": "3.4.1",
-    "scikit-learn": "1.6.0",
-    "joblib": "1.6.0"
-  }
+  "ensemble_improved": true,
+  "selected_production_model": "Ensemble",
+  "target_variable": "target_remaining_travel_time_minutes",
+  "data_honesty_statement": "Model trained on public historical Indian Railways datasets + calibrated Northern Railway operational corridor telemetry. Tested on held-out chronological test split with zero lookahead leakage."
 }

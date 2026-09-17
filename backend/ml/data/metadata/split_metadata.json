@@ -1,0 +1,19 @@
+{
+  "split_method": "STRICT_CHRONOLOGICAL_TEMPORAL",
+  "total_rows": 2276,
+  "train_rows": 1593,
+  "val_rows": 341,
+  "test_rows": 342,
+  "train_date_range": [
+    "2023-06-15",
+    "2024-09-01"
+  ],
+  "val_date_range": [
+    "2024-09-01",
+    "2024-11-03"
+  ],
+  "test_date_range": [
+    "2024-11-03",
+    "2024-12-28"
+  ]
+}

@@ -22,6 +22,7 @@ from backend.database import (
     create_user,
     get_user_by_identifier,
     get_user_by_id,
+    get_user_journey,
 )
 
 
@@ -386,6 +387,7 @@ async def login(
             "id": row["id"],
             "name": row["name"],
             "identifier": row["identifier"],
+            "active_journey": get_user_journey(row["id"]),
         },
     }
 
@@ -432,4 +434,5 @@ async def me(
         "name": row["name"],
         "identifier": row["identifier"],
         "created_at": row["created_at"],
+        "active_journey": get_user_journey(user_id),
     }

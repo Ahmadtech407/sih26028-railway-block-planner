@@ -121,17 +121,18 @@ def fetch_trains(section_id: str) -> List[Dict[str, Any]]:
     return []
 
 
-def fetch_weather(section_id: str, work_type: str) -> Dict[str, Any]:
+def fetch_weather(section_id: str, work_type: str, override_risk: Optional[str] = None) -> Dict[str, Any]:
     """Calls GET /api/weather/{section_id} with direct fallback to weather service."""
-    try:
-        res = requests.get(f"{BACKEND_URL}/api/weather/{section_id}", params={"work_type": work_type}, timeout=4.0)
-        if res.status_code == 200:
-            return res.json()
-    except Exception:
-        pass
+    if not override_risk:
+        try:
+            res = requests.get(f"{BACKEND_URL}/api/weather/{section_id}", params={"work_type": work_type}, timeout=4.0)
+            if res.status_code == 200:
+                return res.json()
+        except Exception:
+            pass
     try:
         from backend.services.weather_service import get_section_weather
-        w = get_section_weather(section_id, work_type=work_type)
+        w = get_section_weather(section_id, work_type=work_type, override_risk=override_risk)
         if w:
             d = w.model_dump()
             if "weather_risk" in d and hasattr(d["weather_risk"], "value"):
@@ -193,6 +194,7 @@ def api_solve_optimizer(
     earliest: int,
     latest: int,
     work_type: str,
+    override_weather_risk: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Calls POST /api/optimizer/solve"""
     try:
@@ -204,6 +206,8 @@ def api_solve_optimizer(
             "latest_end_min": latest,
             "work_type": work_type,
         }
+        if override_weather_risk:
+            payload["override_weather_risk"] = override_weather_risk
         res = requests.post(f"{BACKEND_URL}/api/optimizer/solve", json=payload, timeout=8.0)
         if res.status_code == 200:
             return res.json()
@@ -322,6 +326,26 @@ def main():
     latest = latest_time.hour * 60 + latest_time.minute
 
     st.sidebar.divider()
+    st.sidebar.subheader("🌦️ IMD Weather Simulation")
+    weather_sim_opt = st.sidebar.selectbox(
+        "Simulate Condition",
+        [
+            "🟢 Live Telemetry (Normal)",
+            "🟡 Yellow Watch (Moderate Rain)",
+            "🟠 Orange Alert (Heavy Rain / 60kmph)",
+            "🔴 Red Warning (Severe Storm / Halt)",
+        ],
+        index=0,
+        help="Simulate IMD adverse weather scenarios to test dynamic CP-SAT safety buffer expansion."
+    )
+    weather_risk_override = {
+        "🟢 Live Telemetry (Normal)": None,
+        "🟡 Yellow Watch (Moderate Rain)": "MEDIUM",
+        "🟠 Orange Alert (Heavy Rain / 60kmph)": "HIGH",
+        "🔴 Red Warning (Severe Storm / Halt)": "EXTREME",
+    }[weather_sim_opt]
+
+    st.sidebar.divider()
     st.sidebar.subheader("Data Mode")
 
     st.session_state.offline_mode = st.sidebar.toggle("Offline Prediction Mode", value=st.session_state.offline_mode)
@@ -343,12 +367,13 @@ def main():
                     earliest=earliest,
                     latest=latest,
                     work_type=work_type,
+                    override_weather_risk=weather_risk_override,
                 )
                 st.session_state.recommendation = opt_response
 
     # 4. Fetch Live Trains from Backend
     trains = fetch_trains(section)
-    weather = fetch_weather(section, work_type)
+    weather = fetch_weather(section, work_type, override_risk=weather_risk_override)
     platform_status = fetch_platform_status(section)
 
     # Calculate telemetry age
@@ -409,6 +434,11 @@ def main():
         st.caption("Meteorological baseline calibrated from regional climatic models.")
     if weather.get("weather_reason"):
         st.write(weather["weather_reason"])
+    if weather.get("imd_station_id") or weather.get("imd_color_code"):
+        imd_code = str(weather.get("imd_color_code") or "GREEN").upper()
+        imd_station = str(weather.get("imd_station_id") or "IMD-42452")
+        imd_adv = str(weather.get("imd_advisory") or "Normal track operations.")
+        st.info(f"🏛️ **IMD Advisory ({imd_code} · {imd_station})**: {imd_adv}")
     forecast = weather.get("forecast", [])
     if forecast:
         st.dataframe(pd.DataFrame(forecast), use_container_width=True, hide_index=True)

@@ -1,0 +1,35 @@
+{
+  "is_leak_free": false,
+  "total_features_audited": 22,
+  "safe_features": [
+    "train_number",
+    "train_type",
+    "source_station",
+    "destination_station",
+    "section_id",
+    "distance_km",
+    "scheduled_travel_time",
+    "scheduled_arrival",
+    "speed",
+    "weather",
+    "temperature",
+    "rain",
+    "visibility",
+    "congestion",
+    "data_source",
+    "distance_remaining_km"
+  ],
+  "suspicious_features": [
+    "station_dwell_time",
+    "disruption"
+  ],
+  "leaked_features": [
+    "actual_travel_time",
+    "actual_arrival"
+  ],
+  "unknown_features": [
+    "timestamp",
+    "parsed_timestamp"
+  ],
+  "high_correlation_leakage_flags": []
+}

@@ -72,6 +72,7 @@ def test_area_2_multi_tier_weather():
     w = weather_service.get_section_weather("KNP-PRYJ-SEC-B")
     assert w is not None
     assert w.weather_source in (
+        "IMD_INDIA_METEOROLOGICAL_DEPARTMENT",
         "OPENWEATHERMAP_API",
         "OPEN_METEO_API",
         "CACHED_OBSERVATION",

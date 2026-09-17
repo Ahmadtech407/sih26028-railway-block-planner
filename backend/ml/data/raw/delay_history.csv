@@ -1,0 +1,73 @@
+TrainID,StationID,Date,ScheduledArrival,ActualArrival,ScheduledDeparture,ActualDeparture,DelayMinutes,DelayReason,Weather,Temperature,DayOfWeek,IsHoliday,Season
+TR001,ST001,2024-01-15,Start,Start,16:55,16:55,0,None,Clear,18,Monday,No,Winter
+TR001,ST033,2024-01-15,18:10,18:15,18:12,18:17,5,Signal,Clear,18,Monday,No,Winter
+TR001,ST029,2024-01-15,21:35,21:48,21:40,21:53,13,Track Maintenance,Clear,15,Monday,No,Winter
+TR001,ST028,2024-01-15,23:25,23:42,23:30,23:47,17,Track Maintenance,Foggy,12,Monday,No,Winter
+TR001,ST014,2024-01-16,03:15,03:35,03:20,03:40,20,Fog Delay,Foggy,8,Tuesday,No,Winter
+TR001,ST026,2024-01-16,05:10,05:28,05:15,05:33,18,Fog Delay,Foggy,7,Tuesday,No,Winter
+TR001,ST003,2024-01-16,10:05,10:20,End,End,15,Platform Busy,Cloudy,22,Tuesday,No,Winter
+TR002,ST001,2024-01-16,Start,Start,20:25,20:25,0,None,Clear,16,Tuesday,No,Winter
+TR002,ST013,2024-01-17,04:30,04:38,04:35,04:43,8,Crew Delay,Clear,14,Wednesday,No,Winter
+TR002,ST012,2024-01-17,06:50,07:05,06:55,07:10,15,Technical Issue,Clear,20,Wednesday,No,Winter
+TR002,ST002,2024-01-17,08:35,08:45,End,End,10,Crew Delay,Cloudy,28,Wednesday,No,Winter
+TR003,ST001,2024-01-17,Start,Start,06:05,06:05,0,None,Clear,12,Wednesday,No,Winter
+TR003,ST009,2024-01-17,10:45,10:50,End,End,5,Signal,Clear,22,Wednesday,No,Winter
+TR004,ST001,2024-01-18,Start,Start,22:30,22:30,0,None,Clear,16,Thursday,No,Winter
+TR004,ST030,2024-01-19,01:15,01:22,01:20,01:27,7,Signal,Foggy,10,Friday,No,Winter
+TR004,ST032,2024-01-19,04:30,04:45,04:35,04:50,15,Fog Delay,Foggy,8,Friday,No,Winter
+TR004,ST012,2024-01-19,10:45,11:05,10:50,11:10,20,Track Maintenance,Clear,22,Friday,No,Winter
+TR004,ST006,2024-01-19,16:20,16:38,16:25,16:43,18,Platform Busy,Cloudy,26,Friday,No,Winter
+TR004,ST021,2024-01-19,20:30,20:52,20:35,20:57,22,Technical Issue,Clear,24,Friday,No,Winter
+TR004,ST004,2024-01-20,09:15,09:35,End,End,20,Crew Delay,Cloudy,32,Saturday,No,Winter
+TR005,ST001,2024-01-20,Start,Start,05:30,05:30,0,None,Clear,14,Saturday,No,Winter
+TR005,ST043,2024-01-20,07:15,07:20,07:20,07:25,5,Signal,Clear,15,Saturday,No,Winter
+TR005,ST044,2024-01-20,08:45,08:55,08:50,09:00,10,Crew Delay,Clear,16,Saturday,No,Winter
+TR005,ST045,2024-01-20,10:20,10:32,10:25,10:37,12,Crew Delay,Clear,17,Saturday,No,Winter
+TR005,ST011,2024-01-20,12:10,12:25,12:15,12:30,15,Signal,Clear,18,Saturday,No,Winter
+TR005,ST010,2024-01-20,14:20,14:30,End,End,10,Platform Busy,Clear,19,Saturday,No,Winter
+TR006,ST001,2024-01-21,Start,Start,06:50,06:50,0,None,Clear,13,Sunday,No,Winter
+TR006,ST033,2024-01-21,08:20,08:24,08:22,08:26,4,Signal,Clear,15,Sunday,No,Winter
+TR006,ST030,2024-01-21,09:50,09:55,End,End,5,None,Clear,18,Sunday,No,Winter
+TR007,ST002,2024-01-22,Start,Start,15:20,15:20,0,None,Clear,26,Monday,No,Winter
+TR007,ST007,2024-01-22,18:30,18:40,18:40,18:50,10,Platform Busy,Clear,22,Monday,No,Winter
+TR007,ST012,2024-01-23,01:15,01:28,01:20,01:33,13,Technical Issue,Clear,18,Tuesday,No,Winter
+TR007,ST006,2024-01-23,04:30,04:45,04:35,04:50,15,Track Maintenance,Clear,20,Tuesday,No,Winter
+TR007,ST005,2024-01-23,06:40,06:55,End,End,15,Crew Delay,Cloudy,24,Tuesday,No,Winter
+TR008,ST002,2024-01-23,Start,Start,05:50,05:50,0,None,Clear,24,Tuesday,No,Winter
+TR008,ST007,2024-01-23,09:35,09:38,End,End,3,None,Clear,23,Tuesday,No,Winter
+TR009,ST002,2024-01-24,Start,Start,14:35,14:35,0,None,Clear,27,Wednesday,No,Winter
+TR009,ST013,2024-01-24,17:45,17:52,17:50,17:57,7,Signal,Clear,19,Wednesday,No,Winter
+TR009,ST008,2024-01-24,21:25,21:35,End,End,10,Platform Busy,Clear,16,Wednesday,No,Winter
+TR010,ST003,2024-01-25,Start,Start,18:10,18:10,0,None,Rainy,24,Thursday,No,Winter
+TR010,ST026,2024-01-25,20:30,20:42,20:35,20:47,12,Weather Delay,Rainy,22,Thursday,No,Winter
+TR010,ST025,2024-01-25,22:15,22:30,22:20,22:35,15,Weather Delay,Rainy,21,Thursday,No,Winter
+TR010,ST024,2024-01-26,00:45,01:05,00:50,01:10,20,Weather Delay,Rainy,19,Friday,Yes,Winter
+TR010,ST022,2024-01-26,06:30,06:48,06:35,06:53,18,Weather Delay,Rainy,25,Friday,Yes,Winter
+TR010,ST021,2024-01-26,10:15,10:30,10:20,10:35,15,Technical Issue,Cloudy,28,Friday,Yes,Winter
+TR010,ST006,2024-01-26,16:20,16:40,End,End,20,Crew Delay,Cloudy,27,Friday,Yes,Winter
+TR011,ST001,2024-01-27,Start,Start,15:00,15:00,0,None,Clear,17,Saturday,No,Winter
+TR011,ST033,2024-01-27,17:30,17:33,End,End,3,None,Clear,16,Saturday,No,Winter
+TR012,ST001,2024-01-28,Start,Start,22:40,22:40,0,None,Foggy,11,Sunday,No,Winter
+TR012,ST016,2024-01-29,12:15,12:35,End,End,20,Fog Delay,Foggy,8,Monday,No,Winter
+TR013,ST004,2024-01-29,Start,Start,23:15,23:15,0,None,Clear,28,Monday,No,Winter
+TR013,ST020,2024-01-30,04:30,04:40,End,End,10,Crew Delay,Clear,26,Tuesday,No,Winter
+TR014,ST001,2024-01-30,Start,Start,11:35,11:35,0,None,Clear,18,Tuesday,No,Winter
+TR014,ST033,2024-01-30,13:15,13:18,13:17,13:20,3,Signal,Clear,19,Tuesday,No,Winter
+TR014,ST029,2024-01-30,16:45,16:55,16:50,17:00,10,Signal,Clear,17,Tuesday,No,Winter
+TR014,ST015,2024-01-31,04:50,05:05,End,End,15,Crew Delay,Foggy,10,Wednesday,No,Winter
+TR015,ST010,2024-02-01,Start,Start,17:45,17:45,0,None,Clear,16,Thursday,No,Winter
+TR015,ST011,2024-02-01,19:30,19:38,19:35,19:43,8,Signal,Clear,15,Thursday,No,Winter
+TR015,ST045,2024-02-01,20:50,21:00,20:55,21:05,10,Signal,Clear,14,Thursday,No,Winter
+TR015,ST044,2024-02-01,21:40,21:48,21:45,21:53,8,Signal,Clear,13,Thursday,No,Winter
+TR015,ST043,2024-02-01,22:30,22:35,End,End,5,None,Clear,13,Thursday,No,Winter
+TR016,ST004,2024-02-02,Start,Start,05:40,05:40,0,None,Clear,27,Friday,No,Winter
+TR016,ST020,2024-02-02,12:30,12:42,End,End,12,Technical Issue,Clear,29,Friday,No,Winter
+TR017,ST009,2024-02-03,Start,Start,15:30,15:30,0,None,Clear,20,Saturday,No,Winter
+TR017,ST001,2024-02-03,20:15,20:22,End,End,7,Platform Busy,Clear,16,Saturday,No,Winter
+TR018,ST010,2024-02-04,Start,Start,06:15,06:15,0,None,Foggy,10,Sunday,No,Winter
+TR018,ST046,2024-02-04,08:30,08:42,08:35,08:47,12,Fog Delay,Foggy,9,Sunday,No,Winter
+TR018,ST047,2024-02-04,12:30,12:45,End,End,15,Fog Delay,Foggy,8,Sunday,No,Winter
+TR019,ST006,2024-02-05,Start,Start,20:45,20:45,0,None,Clear,22,Monday,No,Winter
+TR019,ST012,2024-02-06,06:30,06:48,End,End,18,Technical Issue,Clear,19,Tuesday,No,Winter
+TR020,ST002,2024-02-06,Start,Start,22:00,22:00,0,None,Clear,25,Tuesday,No,Winter
+TR020,ST013,2024-02-07,10:45,10:58,End,End,13,Track Maintenance,Clear,21,Wednesday,No,Winter
