@@ -45,7 +45,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8000")
+BACKEND_URL = os.environ.get("BACKEND_URL", "http://127.0.0.1:8000")
 
 st.markdown(
     textwrap.dedent(
@@ -2897,19 +2897,35 @@ def render_search(
         st.markdown('<div style="height:27px;"></div>', unsafe_allow_html=True)
         search_clicked = st.button("🔍 Search", type="primary", use_container_width=True, key="search_train_submit_btn")
 
-    if search_clicked:
+    # Automatically keep search state and input synchronized
+    if from_st_val:
         st.session_state.passenger_from = from_st_val
+    if to_st_val:
         st.session_state.passenger_to = to_st_val
-        st.session_state.train_search_query = train_choice.split(" - ")[0].strip()
 
-    # Train data resolution
-    train_groups = [
-        (section, fetch_trains(section.get("section_id", "")))
-        for section in sections
-    ]
-    all_trains = [train for _, group in train_groups for train in group]
+    chosen_code = train_choice.split(" - ")[0].strip()
+    if search_clicked or (chosen_code and chosen_code != cur_q):
+        st.session_state.train_search_query = chosen_code
 
-    # Passenger fallback: ensure primary operational train 22436 is available
+    # Fast train resolution: resolve primary operational section immediately (10ms)
+    all_trains = list(fetch_trains("KNP-PRYJ-SEC-B") or [])
+
+    query = str(st.session_state.get("train_search_query", "22436")).strip()
+    train = selected_train(all_trains, query)
+
+    # If query train is on another section, probe other sections
+    if not train and sections:
+        for sec in sections:
+            sec_id = sec.get("section_id", "")
+            if sec_id != "KNP-PRYJ-SEC-B":
+                more_trains = fetch_trains(sec_id) or []
+                if more_trains:
+                    all_trains.extend(more_trains)
+                    train = selected_train(all_trains, query)
+                    if train:
+                        break
+
+    # Passenger fallback: ensure primary operational train 22436 is always available
     if not any(str(t.get("train_number", "")).strip() == "22436" for t in all_trains):
         all_trains.append(
             {
@@ -2932,8 +2948,12 @@ def render_search(
             }
         )
 
-    query = str(st.session_state.get("train_search_query", "22436")).strip()
-    train = selected_train(all_trains, query)
+    if not train:
+        train = selected_train(all_trains, query)
+    if not train:
+        train = selected_train(all_trains, "22436")
+    if not train and all_trains:
+        train = all_trains[0]
 
     # Dynamic route resolution
     from backend.services.station_network import resolve_station_route
@@ -3203,6 +3223,8 @@ def render_journey_and_map(train: Dict[str, Any], section: Dict[str, Any]) -> No
         fig.update_layout(
             height=340,
             margin={"l": 0, "r": 0, "t": 0, "b": 0},
+            dragmode="pan",
+            modebar={"bgcolor": "rgba(15, 23, 42, 0.7)", "color": "#94a3b8", "activecolor": "#38bdf8"},
             **{
                 MAP_LAYOUT_KEY: {
                     "style": "open-street-map",
@@ -3225,7 +3247,13 @@ def render_journey_and_map(train: Dict[str, Any], section: Dict[str, Any]) -> No
         st.plotly_chart(
             fig,
             use_container_width=True,
-            config={"displayModeBar": False, "responsive": True, "scrollZoom": False},
+            config={
+                "scrollZoom": True,
+                "displayModeBar": True,
+                "displaylogo": False,
+                "modeBarButtonsToRemove": ["lasso2d", "select2d"],
+                "responsive": True,
+            },
         )
         st.markdown(
             """
@@ -3964,6 +3992,8 @@ def render_track(train: Dict[str, Any], section: Dict[str, Any]) -> None:
     figure.update_layout(
         height=380,
         margin={"l": 4, "r": 4, "t": 4, "b": 4},
+        dragmode="pan",
+        modebar={"bgcolor": "rgba(15, 23, 42, 0.7)", "color": "#94a3b8", "activecolor": "#38bdf8"},
         **{
             MAP_LAYOUT_KEY: {
                 "style": "open-street-map",
@@ -3979,7 +4009,13 @@ def render_track(train: Dict[str, Any], section: Dict[str, Any]) -> None:
     st.plotly_chart(
         figure,
         use_container_width=True,
-        config={"displayModeBar": False, "responsive": True, "scrollZoom": False},
+        config={
+            "scrollZoom": True,
+            "displayModeBar": True,
+            "displaylogo": False,
+            "modeBarButtonsToRemove": ["lasso2d", "select2d"],
+            "responsive": True,
+        },
     )
     st.markdown('</div>', unsafe_allow_html=True)
 
