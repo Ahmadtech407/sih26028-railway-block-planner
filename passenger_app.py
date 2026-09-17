@@ -1066,7 +1066,17 @@ def get_json(path: str, params: Optional[Dict[str, Any]] = None) -> Any:
 
 @st.cache_data(ttl=20, show_spinner=False)
 def fetch_sections() -> List[Dict[str, Any]]:
-    return get_json("/api/sections") or []
+    data = get_json("/api/sections")
+    if data:
+        return data
+    try:
+        from backend.services.section_service import get_all_sections
+        secs = get_all_sections()
+        if secs:
+            return [s.model_dump() for s in secs]
+    except Exception:
+        pass
+    return []
 
 
 @st.cache_data(ttl=10, show_spinner=False)
@@ -1100,7 +1110,23 @@ def fetch_trains(section_id: str) -> List[Dict[str, Any]]:
 
 @st.cache_data(ttl=20, show_spinner=False)
 def fetch_platforms(section_id: str) -> Dict[str, Any]:
-    return get_json(f"/api/platforms/{section_id}") or {"platforms": [], "conflicts": [], "source": "UNAVAILABLE"}
+    data = get_json(f"/api/platforms/{section_id}")
+    if data:
+        return data
+    try:
+        from backend.services.platform_service import get_platform_status
+        trains, conflicts = get_platform_status(section_id)
+        assigned = {train.platform_number for train in trains if train.platform_number is not None}
+        return {
+            "section_id": section_id,
+            "source": "CRIS_TMS",
+            "platforms": [t.model_dump() for t in trains],
+            "conflicts": [c.model_dump() for c in conflicts],
+            "available_platforms": [number for number in range(1, 10) if number not in assigned],
+        }
+    except Exception:
+        pass
+    return {"platforms": [], "conflicts": [], "source": "UNAVAILABLE"}
 
 
 @st.cache_data(ttl=30, show_spinner=False)
