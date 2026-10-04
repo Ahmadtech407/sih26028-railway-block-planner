@@ -262,6 +262,176 @@ def minutes_to_hhmm(minutes: int) -> str:
 # ============================================================
 
 @st.fragment(run_every="30s")
+
+
+# ============================================================
+# COACH FORMATION LOCATOR (DATA-DRIVEN)
+# ============================================================
+
+def render_coach_position_section(default_train: str = "22436"):
+    """Renders train-specific coach formation locator with exact coach index and verification status."""
+    st.subheader("🚃 Train Coach Position Locator (Data-Driven)")
+    st.caption("Physical Train Composition • Dynamic Indexing via findIndex() • Verification Status Enforced")
+
+    col_t, col_c, col_s, col_b = st.columns([1.6, 0.8, 0.8, 0.9])
+    with col_t:
+        train_choice = st.selectbox(
+            "Select Train",
+            options=["22436", "12301", "12004", "12424"],
+            index=["22436", "12301", "12004", "12424"].index(default_train) if default_train in ["22436", "12301", "12004", "12424"] else 0,
+            format_func=lambda x: {
+                "22436": "22436 · Vande Bharat Express (CDG–JAT)",
+                "12301": "12301 · Howrah Rajdhani Express",
+                "12004": "12004 · Lucknow Swarna Shatabdi",
+                "12424": "12424 · Dibrugarh Rajdhani (Data Unavailable)",
+            }.get(x, x),
+            key="sec_coach_train_select"
+        )
+    with col_c:
+        coach_input = st.text_input("Coach ID", value="B1", key="sec_coach_id_input").strip().upper()
+    with col_s:
+        seat_input = st.text_input("Seat / Berth", value="36A", key="sec_seat_input").strip()
+    with col_b:
+        st.write("")
+        st.write("")
+        locate_btn = st.button("🔍 Locate Coach", type="primary", use_container_width=True, key="sec_locate_coach_btn")
+
+    # Load from backend or local JSON
+    formation = None
+    try:
+        res = requests.get(f"{BACKEND_URL}/api/trains/{train_choice}/formation", timeout=2.0)
+        if res.status_code == 200:
+            formation = res.json()
+    except Exception:
+        pass
+
+    if not formation:
+        json_path = os.path.join(os.path.dirname(__file__), "backend", "data", "coach_formations.json")
+        if os.path.exists(json_path):
+            try:
+                with open(json_path, "r", encoding="utf-8") as f:
+                    formation = json.load(f).get("formations", {}).get(train_choice)
+            except Exception:
+                pass
+
+    if not formation or formation.get("verificationStatus") == "UNAVAILABLE" or not formation.get("coaches"):
+        st.markdown(f"""
+        <div style="background:rgba(244,63,94,0.08); border:1.5px solid #f43f5e; border-radius:12px; padding:16px 20px; margin-top:14px; text-align:center;">
+            <div style="font-size:1.8rem; margin-bottom:6px;">⚠️</div>
+            <div style="font-size:1.05rem; font-weight:800; color:#f43f5e; margin-bottom:6px;">Coach Formation Data Unavailable</div>
+            <div style="font-size:0.85rem; color:#475569; line-height:1.6;">
+                Coach formation data is currently unavailable for Train <b>{train_choice}</b>.<br>
+                This does not mean coach <b>{coach_input}</b> does not exist &mdash; formation data has simply not been loaded for this train.<br>
+                <b style="color:#f43f5e;">Position is NOT shown</b> to preserve accuracy. A guess would be worse than no information.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        return
+
+    coaches = formation.get("coaches", [])
+    exact_index = -1
+    for i, c in enumerate(coaches):
+        if str(c.get("coachId", "")).upper() == coach_input:
+            exact_index = i
+            break
+
+    if exact_index == -1:
+        known = ", ".join(c.get("coachId", "") for c in coaches if c.get("type") != "LOCOMOTIVE")
+        st.markdown(f"""
+        <div style="background:rgba(245,158,11,0.08); border:1.5px solid #f59e0b; border-radius:12px; padding:16px 20px; margin-top:14px; text-align:center;">
+            <div style="font-size:1.05rem; font-weight:800; color:#d97706; margin-bottom:6px;">⚠️ Coach "{coach_input}" not found in Train {train_choice}</div>
+            <div style="font-size:0.85rem; color:#475569; line-height:1.6;">
+                This coach ID was not found in the stored formation for this train.<br>
+                Coaches in this formation: <b style="color:#b45309;">{known}</b>.<br>
+                Position is not guessed &mdash; accuracy is the primary requirement.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        return
+
+    total_coaches = len(coaches)
+    passengers_before = sum(1 for c in coaches[:exact_index] if c.get("type") != "LOCOMOTIVE")
+    passengers_after = sum(1 for c in coaches[exact_index+1:] if c.get("type") != "LOCOMOTIVE")
+
+    ratio = exact_index / max(1, total_coaches - 1)
+    if ratio <= 0.33:
+        rel_pos = "Front Section"
+    elif ratio <= 0.66:
+        rel_pos = "Middle Section"
+    else:
+        rel_pos = "Rear Section"
+
+    v_status = formation.get("verificationStatus", "VERIFIED")
+    v_badge = "✓ Verified Formation" if v_status == "VERIFIED" else "⚠ Partially Verified"
+
+    m1, m2, m3, m4, m5 = st.columns(5)
+    m1.metric("Selected Coach", f"{coach_input} ({formation.get('coaches')[exact_index].get('class', 'SL')})")
+    m2.metric("Position from Front", f"{exact_index + 1} of {total_coaches}")
+    m3.metric("Relative Section", rel_pos)
+    m4.metric("Coaches Ahead", f"{passengers_before} passenger")
+    m5.metric("Coaches Behind", f"{passengers_after} passenger")
+
+    strip_html = ""
+    for idx, c in enumerate(coaches):
+        is_highlight = (str(c.get("coachId", "")).upper() == coach_input)
+        is_loco = (c.get("type") == "LOCOMOTIVE")
+        lbl = str(c.get("displayLabel", c.get("coachId")))
+        cls_lbl = str(c.get("class") or ("Loco" if is_loco else c.get("type")[:2]))
+
+        if idx > 0:
+            strip_html += '<div style="width:8px; height:4px; background:#94a3b8; flex-shrink:0;"></div>'
+
+        if is_highlight:
+            body_style = "width:60px; height:38px; border-radius:8px; background:linear-gradient(135deg, #0284c7 0%, #0369a1 100%); border:2.5px solid #0284c7; color:#ffffff; font-weight:800; font-size:0.85rem; display:flex; align-items:center; justify-content:center; box-shadow:0 0 16px rgba(2,132,199,0.7); position:relative;"
+            pointer = '<div style="position:absolute; top:-18px; left:50%; transform:translateX(-50%); font-size:0.6rem; font-weight:900; color:#0284c7; letter-spacing:0.04em;">YOU ▼</div>'
+            lbl_color = "#0284c7"
+        elif is_loco:
+            body_style = "width:48px; height:36px; border-radius:4px 12px 4px 4px; background:#e0f2fe; border:1.5px solid #38bdf8; color:#0284c7; font-weight:700; font-size:0.75rem; display:flex; align-items:center; justify-content:center;"
+            pointer = ""
+            lbl_color = "#64748b"
+        else:
+            body_style = "width:56px; height:36px; border-radius:6px; background:#f1f5f9; border:1.5px solid #cbd5e1; color:#334155; font-weight:700; font-size:0.78rem; display:flex; align-items:center; justify-content:center;"
+            pointer = ""
+            lbl_color = "#64748b"
+
+        strip_html += f"""
+        <div style="display:flex; flex-direction:column; align-items:center; gap:4px; flex-shrink:0; position:relative;">
+            {pointer}
+            <div style="{body_style}">{lbl}</div>
+            <div style="font-size:0.68rem; color:{lbl_color}; font-weight:700;">{cls_lbl}</div>
+        </div>
+        """
+
+    seat_msg = f" &bull; Seat: <b>{seat_input}</b>" if seat_input else ""
+    st.markdown(f"""
+    <div style="background:#ffffff; border:1.5px solid #e2e8f0; border-radius:14px; padding:16px 20px; margin-top:12px; box-shadow:0 2px 10px rgba(0,0,0,0.04);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+            <div style="font-size:0.9rem; font-weight:750; color:#1e293b;">
+                🚆 Train {train_choice} &mdash; {formation.get('trainName', '')}
+            </div>
+            <div style="background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; font-size:0.75rem; font-weight:700; padding:3px 10px; border-radius:20px;">
+                {v_badge}
+            </div>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:6px;">
+            <span>← Locomotive (Front of Train)</span>
+            <span>Guard Van (Rear of Train) →</span>
+        </div>
+        <div style="display:flex; gap:4px; align-items:center; overflow-x:auto; padding:22px 6px 14px; border-bottom:1px solid #f1f5f9;">
+            {strip_html}
+        </div>
+        <div style="font-size:0.78rem; color:#64748b; margin-top:10px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+            <div>
+                Passenger Coach: <b style="color:#0284c7;">{coach_input}</b>{seat_msg} &bull; Capacity: <b>{formation.get('coaches')[exact_index].get('berths', 72)} berths</b>
+            </div>
+            <div style="color:#94a3b8; font-size:0.72rem;">
+                ⚠️ <b>DEMO TRAIN FORMATION</b> &mdash; Prototype data. Dynamic sequence verification.
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
 def main():
     # 1. Initialize Session State
     if "last_update" not in st.session_state:
@@ -563,6 +733,9 @@ def main():
         st.dataframe(pd.DataFrame(train_rows), use_container_width=True, hide_index=True)
     else:
         st.info("No trains currently scheduled on this section.")
+
+    # 9b. Train Coach Position Locator (Data-Driven)
+    render_coach_position_section(default_train="22436")
 
     # 10. Gantt Chart
     st.subheader("📊 Sectional Occupancy & Maintenance Gantt Timeline")

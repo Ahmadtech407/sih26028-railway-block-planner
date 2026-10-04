@@ -3254,7 +3254,7 @@ def render_train_info(train: Dict[str, Any], section: Dict[str, Any], weather: O
     )
 
     # Interactive Coach Position Locator matching user spec
-    with st.expander(f"🚃 Find My Coach in Train {train_num} (Exact Physical Formation)", expanded=False):
+    with st.expander(f"🚃 Find My Coach in Train {train_num} (Exact Physical Formation)", expanded=True):
         c_col1, c_col2 = st.columns([1, 1])
         with c_col1:
             find_coach = st.text_input("Coach ID (e.g. B1, S1, A1, C2)", value="B1", key=f"fcoach_{train_num}").strip().upper()
