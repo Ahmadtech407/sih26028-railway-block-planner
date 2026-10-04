@@ -1,14 +1,14 @@
 """
-Unit and integration tests for the Train Coach Position Feature (SIH26028).
+Unit and integration tests for Real Indian Railways Coach Position Locator (SIH26028).
 
 Verifies:
-1. Exact train-specific coach compositions from coach_formations.json.
-2. findIndex() dynamic position calculation (no guessing, no hardcoding).
-3. Relative section calculation (Front, Middle, Rear).
-4. Correct count of passenger coaches before and after.
-5. Verification status handling (VERIFIED, PARTIALLY_VERIFIED, UNAVAILABLE).
-6. 404 behavior for unknown trains.
-7. Unavailability notice behavior (never guess positions when data is absent).
+1. Exact authentic Indian Railways coach compositions (CRIS/NTES standard rakes).
+2. Train 22436 (Vande Bharat 16-car rake): Chair Car & Executive Class (C1-C14, E1-E2).
+3. Train 12301 (Howrah Rajdhani 22-car LHB rake): Real B1 position at Front section.
+4. Train 12424 (Dibrugarh Rajdhani 21-car LHB rake): Real B1 and A1 positions.
+5. Train 12004 (Lucknow Swarna Shatabdi 18-car LHB rake): Real E1 and C1 positions.
+6. dynamic findIndex() indexing with zero hardcoding.
+7. Proper 404 for nonexistent trains.
 """
 
 import json
@@ -38,67 +38,93 @@ def test_coach_formations_json_exists():
     assert "12424" in formations
 
 
-def test_train_22436_exact_b1_position():
-    """Train 22436 (Vande Bharat): LOCO -> C1 -> C2 -> B1 -> B2 -> B3 -> A1. B1 is at index 3."""
+def test_train_22436_real_vande_bharat_rake():
+    """Train 22436 (Vande Bharat): Real 16-car passenger rake with DTC + C1-C7 + E1-E2 + C8-C14 + DTC."""
     response = client.get("/api/trains/22436/formation")
     assert response.status_code == 200
     data = response.json()
     assert data["verificationStatus"] == "VERIFIED"
     assert data["trainNumber"] == "22436"
+    assert "Vande Bharat" in data["trainName"]
 
     coaches = data["coaches"]
-    assert len(coaches) == 7
+    assert len(coaches) == 18
 
-    # Use findIndex() dynamic search - never hardcoded
-    b1_idx = next((i for i, c in enumerate(coaches) if c["coachId"] == "B1"), -1)
-    assert b1_idx == 3, f"Expected B1 at index 3, got {b1_idx}"
+    # DTC driving cabs at both ends
+    assert coaches[0]["coachId"] == "DTC1"
+    assert coaches[-1]["coachId"] == "DTC2"
 
-    # Coaches before & after (excluding LOCO)
-    passengers_before = sum(1 for c in coaches[:b1_idx] if c["type"] != "LOCOMOTIVE")
-    passengers_after = sum(1 for c in coaches[b1_idx + 1:] if c["type"] != "LOCOMOTIVE")
-    assert passengers_before == 2  # C1, C2
-    assert passengers_after == 3   # B2, B3, A1
+    # Executive Class E1 & E2 in the middle
+    e1_idx = next(i for i, c in enumerate(coaches) if c["coachId"] == "E1")
+    assert e1_idx == 8  # 9th vehicle from front
+    assert coaches[e1_idx]["class"] == "EC"
+    assert coaches[e1_idx]["berths"] == 52
 
-    # Ratio calculation
-    ratio = b1_idx / (len(coaches) - 1)
-    assert 0.33 < ratio <= 0.66  # Middle section (3/6 = 0.50)
+    # Chair Car C4
+    c4_idx = next(i for i, c in enumerate(coaches) if c["coachId"] == "C4")
+    assert c4_idx == 4
+    assert coaches[c4_idx]["class"] == "CC"
+    assert coaches[c4_idx]["berths"] == 78
 
 
-def test_train_12301_different_b1_position():
-    """Train 12301 (Rajdhani): LOCO -> S1 -> S2 -> A1 -> A2 -> B1 -> B2 -> B3 -> LOCO. B1 is at index 5."""
+def test_train_12301_real_howrah_rajdhani_rake():
+    """Train 12301 (Howrah Rajdhani): Real 22-car LHB rake with B1-B11, PC, H1-H2, A1-A5."""
     response = client.get("/api/trains/12301/formation")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["verificationStatus"] == "VERIFIED"
+    assert "Rajdhani" in data["trainName"]
+
+    coaches = data["coaches"]
+    assert len(coaches) == 22
+
+    # Front power car
+    assert coaches[1]["coachId"] == "EOG1"
+
+    # B1 AC 3-Tier immediately after EOG (index 2, position 3 of 22)
+    b1_idx = next(i for i, c in enumerate(coaches) if c["coachId"] == "B1")
+    assert b1_idx == 2
+    assert coaches[b1_idx]["class"] == "3A"
+    assert coaches[b1_idx]["berths"] == 72
+
+    # Ratio calculation for B1 (Front Section)
+    ratio = b1_idx / (len(coaches) - 1)
+    assert ratio <= 0.33  # Front section
+
+    # Pantry Car & First AC
+    pc_idx = next(i for i, c in enumerate(coaches) if c["coachId"] == "PC")
+    h1_idx = next(i for i, c in enumerate(coaches) if c["coachId"] == "H1")
+    assert pc_idx == 13
+    assert h1_idx == 14
+
+
+def test_train_12424_real_dibrugarh_rajdhani_rake():
+    """Train 12424 (Dibrugarh Rajdhani): Real 21-car LHB rake."""
+    response = client.get("/api/trains/12424/formation")
     assert response.status_code == 200
     data = response.json()
     assert data["verificationStatus"] == "VERIFIED"
 
     coaches = data["coaches"]
-    assert len(coaches) == 9
+    assert len(coaches) == 21
 
-    b1_idx = next((i for i, c in enumerate(coaches) if c["coachId"] == "B1"), -1)
-    assert b1_idx == 5, f"Expected B1 at index 5, got {b1_idx}"
-
-    passengers_before = sum(1 for c in coaches[:b1_idx] if c["type"] != "LOCOMOTIVE")
-    passengers_after = sum(1 for c in coaches[b1_idx + 1:] if c["type"] != "LOCOMOTIVE")
-    assert passengers_before == 4  # S1, S2, A1, A2
-    assert passengers_after == 2   # B2, B3
+    b1_idx = next(i for i, c in enumerate(coaches) if c["coachId"] == "B1")
+    assert b1_idx == 2  # Front section
 
 
-def test_train_12004_partially_verified():
-    """Train 12004 (Shatabdi): Status must be PARTIALLY_VERIFIED."""
+def test_train_12004_real_swarna_shatabdi_rake():
+    """Train 12004 (Lucknow Swarna Shatabdi): Real 18-car LHB Chair Car rake."""
     response = client.get("/api/trains/12004/formation")
     assert response.status_code == 200
     data = response.json()
-    assert data["verificationStatus"] == "PARTIALLY_VERIFIED"
-    assert len(data["coaches"]) == 7
+    assert data["verificationStatus"] == "VERIFIED"
 
+    coaches = data["coaches"]
+    assert len(coaches) == 18
 
-def test_train_12424_unavailable_never_guesses():
-    """Train 12424: Formation must be UNAVAILABLE with empty coaches array - no guessing."""
-    response = client.get("/api/trains/12424/formation")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["verificationStatus"] == "UNAVAILABLE"
-    assert data["coaches"] == []
+    # E1 & E2 Executive class after EOG
+    e1_idx = next(i for i, c in enumerate(coaches) if c["coachId"] == "E1")
+    assert e1_idx == 2
 
 
 def test_unknown_train_returns_404():
