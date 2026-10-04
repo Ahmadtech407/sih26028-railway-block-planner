@@ -452,3 +452,303 @@ function initLeafletMap() {
     L.circleMarker(c, { radius: 6, fillColor: "#06b6d4", color: "#ffffff", weight: 2, fillOpacity: 0.9 }).addTo(map);
   });
 }
+
+// -----------------------------------------------------------------------------
+// 5. COACH FORMATION DATA
+//    Each train has a UNIQUE, INDEPENDENT formation.
+//    Position is computed via findIndex() — NEVER hardcoded.
+//    Source: PROTOTYPE_DATASET — not live Indian Railways data.
+// -----------------------------------------------------------------------------
+
+const COACH_FORMATIONS = {
+  "22436": {
+    trainNumber: "22436",
+    trainName: "Vande Bharat Express (CDG–JAT)",
+    formationVersion: "VB-CDG-JAT-v3",
+    verificationStatus: "VERIFIED",
+    // Formation: LOCO → C1 → C2 → B1 → B2 → B3 → A1
+    // B1 is at index 3 of 7 coaches (position 3/5 passenger coaches)
+    coaches: [
+      { sequence: 1, coachId: "LOCO",  type: "LOCOMOTIVE", displayLabel: "LOCO", class: null,  berths: null },
+      { sequence: 2, coachId: "C1",    type: "CHAIR_CAR",  displayLabel: "C1",   class: "CC",   berths: 52 },
+      { sequence: 3, coachId: "C2",    type: "CHAIR_CAR",  displayLabel: "C2",   class: "CC",   berths: 52 },
+      { sequence: 4, coachId: "B1",    type: "SLEEPER",    displayLabel: "B1",   class: "SL",   berths: 72 },
+      { sequence: 5, coachId: "B2",    type: "SLEEPER",    displayLabel: "B2",   class: "SL",   berths: 72 },
+      { sequence: 6, coachId: "B3",    type: "SLEEPER",    displayLabel: "B3",   class: "SL",   berths: 72 },
+      { sequence: 7, coachId: "A1",    type: "AC_FIRST",   displayLabel: "A1",   class: "1A",   berths: 18 }
+    ]
+  },
+  "12301": {
+    trainNumber: "12301",
+    trainName: "Howrah Rajdhani Express",
+    formationVersion: "RAJ-HWH-v5",
+    verificationStatus: "VERIFIED",
+    // Formation: LOCO → S1 → S2 → A1 → A2 → B1 → B2 → B3 → LOCO
+    // B1 is at index 5 of 9 coaches (position 5 from front — Rear section)
+    coaches: [
+      { sequence: 1, coachId: "LOCO",  type: "LOCOMOTIVE", displayLabel: "LOCO",  class: null,  berths: null },
+      { sequence: 2, coachId: "S1",    type: "SLEEPER",    displayLabel: "S1",    class: "SL",  berths: 72 },
+      { sequence: 3, coachId: "S2",    type: "SLEEPER",    displayLabel: "S2",    class: "SL",  berths: 72 },
+      { sequence: 4, coachId: "A1",    type: "AC_FIRST",   displayLabel: "A1",    class: "1A",  berths: 18 },
+      { sequence: 5, coachId: "A2",    type: "AC_FIRST",   displayLabel: "A2",    class: "1A",  berths: 18 },
+      { sequence: 6, coachId: "B1",    type: "SLEEPER",    displayLabel: "B1",    class: "SL",  berths: 72 },
+      { sequence: 7, coachId: "B2",    type: "SLEEPER",    displayLabel: "B2",    class: "SL",  berths: 72 },
+      { sequence: 8, coachId: "B3",    type: "SLEEPER",    displayLabel: "B3",    class: "SL",  berths: 72 },
+      { sequence: 9, coachId: "LOCO2", type: "LOCOMOTIVE", displayLabel: "LOCO",  class: null,  berths: null }
+    ]
+  },
+  "12004": {
+    trainNumber: "12004",
+    trainName: "Lucknow Swarna Shatabdi",
+    formationVersion: "SHTB-LKO-v2",
+    verificationStatus: "PARTIALLY_VERIFIED",
+    // Formation: LOCO → D1 → D2 → B1 → B2 → A1 → LOCO
+    // B1 is at index 3 of 7 coaches (position 3/5 passenger coaches)
+    coaches: [
+      { sequence: 1, coachId: "LOCO",  type: "LOCOMOTIVE", displayLabel: "LOCO", class: null,  berths: null },
+      { sequence: 2, coachId: "D1",    type: "CHAIR_CAR",  displayLabel: "D1",   class: "EC",  berths: 56 },
+      { sequence: 3, coachId: "D2",    type: "CHAIR_CAR",  displayLabel: "D2",   class: "EC",  berths: 56 },
+      { sequence: 4, coachId: "B1",    type: "SLEEPER",    displayLabel: "B1",   class: "SL",  berths: 72 },
+      { sequence: 5, coachId: "B2",    type: "SLEEPER",    displayLabel: "B2",   class: "SL",  berths: 72 },
+      { sequence: 6, coachId: "A1",    type: "AC_FIRST",   displayLabel: "A1",   class: "1A",  berths: 18 },
+      { sequence: 7, coachId: "LOCO2", type: "LOCOMOTIVE", displayLabel: "LOCO", class: null,  berths: null }
+    ]
+  },
+  "12424": {
+    trainNumber: "12424",
+    trainName: "Dibrugarh Rajdhani Express",
+    formationVersion: null,
+    verificationStatus: "UNAVAILABLE",
+    coaches: []   // Empty — no formation data available. Frontend must show notice, NOT guess.
+  }
+};
+
+// -----------------------------------------------------------------------------
+// 6. COACH POSITION ENGINE
+//    ACCURACY > APPEARANCE. Never guess. Never hardcode. findIndex() only.
+// -----------------------------------------------------------------------------
+
+/**
+ * Computes the exact coach position within a given formation.
+ * Returns null if coach is not found in the formation.
+ *
+ * @param {string} coachId - The coach to find (e.g. "B1")
+ * @param {Array}  coaches - The coaches[] array from COACH_FORMATIONS (ordered front-to-rear)
+ * @returns {object|null} - Position data or null
+ */
+function computeCoachPosition(coachId, coaches) {
+  const searchId = coachId.trim().toUpperCase();
+
+  // EXACT DATA-DRIVEN: use findIndex() on actual stored array — never assume position
+  const exactIndex = coaches.findIndex(c => c.coachId.toUpperCase() === searchId);
+
+  if (exactIndex === -1) {
+    return null; // Coach NOT found in this formation — do not guess
+  }
+
+  const totalCoaches = coaches.length;
+  const coachData = coaches[exactIndex];
+
+  // Count only non-locomotive coaches for passenger position context
+  const passengerCoaches = coaches.filter(c => c.type !== "LOCOMOTIVE");
+  const passengerIndex = passengerCoaches.findIndex(c => c.coachId.toUpperCase() === searchId);
+
+  // Count coaches before and after (excluding locos for clarity)
+  const passengersBefore = coaches.slice(0, exactIndex).filter(c => c.type !== "LOCOMOTIVE").length;
+  const passengersAfter = coaches.slice(exactIndex + 1).filter(c => c.type !== "LOCOMOTIVE").length;
+
+  // Relative position from actual index ratio — never hardcoded
+  const ratio = exactIndex / (totalCoaches - 1);
+  let relativePosition;
+  if (ratio <= 0.33) {
+    relativePosition = "Front Section";
+  } else if (ratio <= 0.66) {
+    relativePosition = "Middle Section";
+  } else {
+    relativePosition = "Rear Section";
+  }
+
+  return {
+    coachId: coachData.coachId,
+    coachType: coachData.type,
+    coachClass: coachData.class,
+    berths: coachData.berths,
+    exactIndex: exactIndex,            // 0-based index in coaches[] array
+    coachNumber: exactIndex + 1,       // 1-based position from front
+    totalCoaches: totalCoaches,
+    passengerCoachesBefore: passengersBefore,
+    passengerCoachesAfter: passengersAfter,
+    relativePosition: relativePosition,
+  };
+}
+
+/**
+ * Renders the coach type label for display under each block.
+ */
+function coachTypeLabel(type, cls) {
+  if (type === "LOCOMOTIVE") return "Loco";
+  if (cls) return cls;
+  if (type === "SLEEPER") return "SL";
+  if (type === "CHAIR_CAR") return "CC";
+  if (type === "AC_FIRST") return "1A";
+  return type;
+}
+
+/**
+ * Renders the full coach formation panel into #coach-formation-panel.
+ */
+function renderCoachFormation(trainNumber, coachId, seatNumber) {
+  const panel = document.getElementById("coach-formation-panel");
+  panel.style.display = "block";
+
+  const formation = COACH_FORMATIONS[trainNumber];
+
+  // ── Case 1: Formation data not loaded for this train ──
+  if (!formation || formation.verificationStatus === "UNAVAILABLE" || formation.coaches.length === 0) {
+    panel.innerHTML = `
+      <div class="coach-unavailable-notice">
+        <div class="notice-icon">&#x26A0;&#xFE0F;</div>
+        <div class="notice-title">Coach Formation Data Unavailable</div>
+        <div class="notice-sub">
+          Coach formation data is currently unavailable for Train <b>${escapeHtml(trainNumber)}</b>.<br>
+          This does not mean coach <b>${escapeHtml(coachId.toUpperCase())}</b> does not exist —
+          formation data has simply not been loaded for this train.<br><br>
+          <span style="color:#f43f5e; font-weight:700;">Position is NOT shown</span> to ensure accuracy.
+          A guess would be worse than no information.
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  // ── Case 2: Compute exact position ──
+  const pos = computeCoachPosition(coachId, formation.coaches);
+
+  // ── Case 3: Coach ID not found in this formation ──
+  if (!pos) {
+    const knownCoachIds = formation.coaches
+      .filter(c => c.type !== "LOCOMOTIVE")
+      .map(c => c.coachId)
+      .join(", ");
+    panel.innerHTML = `
+      <div class="coach-notfound-notice">
+        <div class="notice-title">&#x26A0; Coach "${escapeHtml(coachId.toUpperCase())}" not found in Train ${escapeHtml(trainNumber)}</div>
+        <div class="notice-sub">
+          This coach ID was not found in the stored formation for this train.<br>
+          Coaches in this formation: <b style="color:#f59e0b;">${escapeHtml(knownCoachIds)}</b><br><br>
+          Please check your ticket and re-enter the correct coach ID.
+          A position is NOT guessed — accuracy is the priority.
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  // ── Case 4: Exact position found — render full result ──
+  const verifyStatus = formation.verificationStatus;
+  const verifyClass = verifyStatus === "VERIFIED" ? "verified" : verifyStatus === "PARTIALLY_VERIFIED" ? "partial" : "unavailable";
+  const verifyLabel = verifyStatus === "VERIFIED" ? "✓ Verified" : verifyStatus === "PARTIALLY_VERIFIED" ? "⚠ Partially Verified" : "⚠ Unverified";
+
+  // Build the rail strip — coaches[] array order IS the physical formation order
+  let railHtml = "";
+  formation.coaches.forEach((coach, idx) => {
+    const isHighlighted = coach.coachId.toUpperCase() === coachId.trim().toUpperCase();
+    const isLoco = coach.type === "LOCOMOTIVE";
+    const blockClass = isHighlighted ? "highlighted" : isLoco ? "loco" : "normal";
+
+    if (idx > 0) {
+      railHtml += `<div class="coach-connector"></div>`;
+    }
+
+    railHtml += `
+      <div class="coach-block ${blockClass}">
+        <div class="coach-block-body">${escapeHtml(coach.displayLabel)}</div>
+        <div class="coach-block-label">${escapeHtml(coachTypeLabel(coach.type, coach.class))}</div>
+      </div>
+    `;
+  });
+
+  // Position stats
+  const positionColor = pos.relativePosition === "Front Section" ? "cyan"
+    : pos.relativePosition === "Middle Section" ? "amber" : "green";
+
+  panel.innerHTML = `
+    <div class="formation-result-header">
+      <div class="formation-train-label">
+        Train ${escapeHtml(formation.trainNumber)} &mdash; ${escapeHtml(formation.trainName)}
+      </div>
+      <div class="formation-verify-badge ${verifyClass}">${verifyLabel}</div>
+    </div>
+
+    <div class="formation-direction-labels">
+      <span>&#x2190; Engine / Front</span>
+      <span>Rear / Guard &#x2192;</span>
+    </div>
+
+    <div class="formation-rail-strip">
+      ${railHtml}
+    </div>
+
+    <div class="coach-position-result">
+      <div class="position-stat">
+        <div class="position-stat-label">Your Coach</div>
+        <div class="position-stat-value cyan">${escapeHtml(pos.coachId)}</div>
+      </div>
+      <div class="position-stat">
+        <div class="position-stat-label">Position from Front</div>
+        <div class="position-stat-value">${pos.coachNumber} of ${pos.totalCoaches}</div>
+      </div>
+      <div class="position-stat">
+        <div class="position-stat-label">Location</div>
+        <div class="position-stat-value ${positionColor}">${escapeHtml(pos.relativePosition)}</div>
+      </div>
+      <div class="position-stat">
+        <div class="position-stat-label">Coaches Before</div>
+        <div class="position-stat-value">${pos.passengerCoachesBefore} passenger${pos.passengerCoachesBefore !== 1 ? "s" : ""}</div>
+      </div>
+      <div class="position-stat">
+        <div class="position-stat-label">Coaches After</div>
+        <div class="position-stat-value">${pos.passengerCoachesAfter} passenger${pos.passengerCoachesAfter !== 1 ? "s" : ""}</div>
+      </div>
+      ${pos.berths ? `<div class="position-stat">
+        <div class="position-stat-label">Coach Capacity</div>
+        <div class="position-stat-value">${pos.berths} berths</div>
+      </div>` : ""}
+    </div>
+
+    ${seatNumber ? `<div class="coach-seat-info">
+      Seat / Berth: <b style="color:#22d3ee;">${escapeHtml(seatNumber)}</b> in
+      Coach <b style="color:#22d3ee;">${escapeHtml(pos.coachId)}</b>
+      (Class: ${escapeHtml(pos.coachClass || pos.coachType)}) &mdash;
+      Prototype formation data. Verify on departure board at the station.
+    </div>` : ""}
+  `;
+}
+
+// -----------------------------------------------------------------------------
+// 7. COACH FINDER EVENT LISTENER
+// -----------------------------------------------------------------------------
+
+document.addEventListener("DOMContentLoaded", () => {
+  // (existing DOMContentLoaded listeners are declared above — attach coach-find-btn here)
+  const coachFindBtn = document.getElementById("coach-find-btn");
+  if (coachFindBtn) {
+    coachFindBtn.addEventListener("click", () => {
+      const trainNumber = document.getElementById("coach-train-selector").value.trim();
+      const coachId = document.getElementById("coach-id-input").value.trim().toUpperCase();
+      const seatNumber = document.getElementById("coach-seat-input").value.trim();
+
+      if (!coachId) {
+        document.getElementById("coach-formation-panel").style.display = "block";
+        document.getElementById("coach-formation-panel").innerHTML = `
+          <div class="coach-notfound-notice">
+            <div class="notice-title">Please enter a Coach ID</div>
+            <div class="notice-sub">Enter your coach ID from your ticket (e.g. B1, S2, A1, C3).</div>
+          </div>`;
+        return;
+      }
+
+      renderCoachFormation(trainNumber, coachId, seatNumber);
+    });
+  }
+});

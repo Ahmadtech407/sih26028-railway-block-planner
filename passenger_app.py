@@ -2346,6 +2346,7 @@ def render_my_journey_card(ticket: Dict[str, Any], live_train: Optional[Dict[str
     </div>
     """
     st.markdown(clean_html(card_html), unsafe_allow_html=True)
+    st.markdown(clean_html(render_coach_formation_html(t_num, coach, seat)), unsafe_allow_html=True)
     st.markdown(clean_html(render_coach_seat_map_html(coach, seat, berth)), unsafe_allow_html=True)
 
     col_track, col_alarm, col_sw, col_tkt, col_clear = st.columns([2.2, 2.2, 2.0, 1.8, 1.4])
@@ -2551,6 +2552,163 @@ body {{ font-family: Arial, sans-serif; background: #f8fafc; color: #0f172a; mar
     return html
 
 
+
+@functools.lru_cache(maxsize=1)
+def load_coach_formations() -> Dict[str, Any]:
+    """Load train-specific coach compositions from JSON file."""
+    import json
+    json_path = os.path.join(os.path.dirname(__file__), "backend", "data", "coach_formations.json")
+    if os.path.exists(json_path):
+        try:
+            with open(json_path, "r", encoding="utf-8") as f:
+                return json.load(f).get("formations", {})
+        except Exception:
+            pass
+    return {}
+
+
+def render_coach_formation_html(train_number: str, coach_id: str, seat_number: str = "") -> str:
+    """Renders train-specific coach formation with exact coach index and verification status."""
+    formations = load_coach_formations()
+    t_key = str(train_number).strip()
+    formation = formations.get(t_key)
+
+    c_id = str(coach_id).strip().upper()
+    s_num = str(seat_number).strip()
+
+    # Case 1: Formation data not available for this train
+    if not formation or formation.get("verificationStatus") == "UNAVAILABLE" or not formation.get("coaches"):
+        return f"""
+        <div style="background:rgba(244,63,94,0.08); border:1px solid rgba(244,63,94,0.3); border-radius:12px; padding:16px; margin-top:10px; text-align:center;">
+            <div style="font-size:1.6rem; margin-bottom:6px;">⚠️</div>
+            <div style="font-size:0.95rem; font-weight:800; color:#f43f5e; margin-bottom:4px;">Coach Formation Data Unavailable</div>
+            <div style="font-size:0.78rem; color:#94a3b8; line-height:1.5;">
+                Coach formation data is currently unavailable for Train <b>{html.escape(t_key)}</b>.<br>
+                This does not mean coach <b>{html.escape(c_id)}</b> does not exist &mdash; formation data has simply not been loaded for this train.<br>
+                <b style="color:#f43f5e;">Position is NOT shown</b> to preserve accuracy. A guess would be worse than no information.
+            </div>
+        </div>
+        """
+
+    coaches = formation.get("coaches", [])
+    # EXACT DATA-DRIVEN: findIndex on physical coaches array
+    exact_index = -1
+    for i, c in enumerate(coaches):
+        if str(c.get("coachId", "")).upper() == c_id:
+            exact_index = i
+            break
+
+    # Case 2: Coach ID not found in this formation
+    if exact_index == -1:
+        known = ", ".join(c.get("coachId", "") for c in coaches if c.get("type") != "LOCOMOTIVE")
+        return f"""
+        <div style="background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.3); border-radius:12px; padding:14px; margin-top:10px; text-align:center;">
+            <div style="font-size:0.92rem; font-weight:800; color:#f59e0b; margin-bottom:4px;">⚠️ Coach "{html.escape(c_id)}" not found in Train {html.escape(t_key)}</div>
+            <div style="font-size:0.76rem; color:#94a3b8; line-height:1.5;">
+                This coach ID was not found in the stored formation for this train.<br>
+                Known passenger coaches: <b style="color:#fbbf24;">{html.escape(known)}</b>.<br>
+                Position is not guessed &mdash; accuracy is the primary requirement.
+            </div>
+        </div>
+        """
+
+    # Case 3: Coach found & verified
+    total_coaches = len(coaches)
+    passengers_before = sum(1 for c in coaches[:exact_index] if c.get("type") != "LOCOMOTIVE")
+    passengers_after = sum(1 for c in coaches[exact_index+1:] if c.get("type") != "LOCOMOTIVE")
+
+    ratio = exact_index / max(1, total_coaches - 1)
+    if ratio <= 0.33:
+        rel_pos = "Front Section"
+        pos_color = "#22d3ee"
+    elif ratio <= 0.66:
+        rel_pos = "Middle Section"
+        pos_color = "#fbbf24"
+    else:
+        rel_pos = "Rear Section"
+        pos_color = "#34d399"
+
+    v_status = formation.get("verificationStatus", "VERIFIED")
+    if v_status == "VERIFIED":
+        v_badge = '<span style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.4); color:#34d399; font-size:0.68rem; font-weight:700; padding:2px 8px; border-radius:12px;">✓ Verified Formation</span>'
+    elif v_status == "PARTIALLY_VERIFIED":
+        v_badge = '<span style="background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.4); color:#fbbf24; font-size:0.68rem; font-weight:700; padding:2px 8px; border-radius:12px;">⚠️ Partially Verified</span>'
+    else:
+        v_badge = '<span style="background:rgba(244,63,94,0.15); border:1px solid rgba(244,63,94,0.4); color:#f43f5e; font-size:0.68rem; font-weight:700; padding:2px 8px; border-radius:12px;">⚠️ Unverified</span>'
+
+    # Build visual train strip
+    strip_html = ""
+    for idx, c in enumerate(coaches):
+        is_highlight = (str(c.get("coachId", "")).upper() == c_id)
+        is_loco = (c.get("type") == "LOCOMOTIVE")
+        lbl = html.escape(str(c.get("displayLabel", c.get("coachId"))))
+        cls_lbl = html.escape(str(c.get("class") or ("Loco" if is_loco else c.get("type")[:2])))
+
+        if idx > 0:
+            strip_html += '<div style="width:6px; height:3px; background:#334155; flex-shrink:0;"></div>'
+
+        if is_highlight:
+            body_style = "width:54px; height:34px; border-radius:6px; background:linear-gradient(135deg, rgba(34,211,238,0.3) 0%, rgba(14,165,233,0.2) 100%); border:2px solid #22d3ee; color:#ffffff; font-weight:800; font-size:0.75rem; display:flex; align-items:center; justify-content:center; box-shadow:0 0 14px rgba(34,211,238,0.6); position:relative;"
+            pointer = '<div style="position:absolute; top:-16px; left:50%; transform:translateX(-50%); font-size:0.55rem; font-weight:900; color:#22d3ee; letter-spacing:0.04em;">YOU ▼</div>'
+            lbl_color = "#22d3ee"
+        elif is_loco:
+            body_style = "width:42px; height:32px; border-radius:4px 10px 4px 4px; background:rgba(6,182,212,0.12); border:1.5px solid rgba(6,182,212,0.4); color:#22d3ee; font-weight:700; font-size:0.68rem; display:flex; align-items:center; justify-content:center;"
+            pointer = ""
+            lbl_color = "#64748b"
+        else:
+            body_style = "width:50px; height:32px; border-radius:6px; background:rgba(30,41,59,0.85); border:1px solid rgba(71,85,105,0.4); color:#94a3b8; font-weight:700; font-size:0.72rem; display:flex; align-items:center; justify-content:center;"
+            pointer = ""
+            lbl_color = "#64748b"
+
+        strip_html += f"""
+        <div style="display:flex; flex-direction:column; align-items:center; gap:4px; flex-shrink:0; position:relative;">
+            {pointer}
+            <div style="{body_style}">{lbl}</div>
+            <div style="font-size:0.62rem; color:{lbl_color}; font-weight:600;">{cls_lbl}</div>
+        </div>
+        """
+
+    seat_sub = f" · Seat <b>{html.escape(s_num)}</b>" if s_num else ""
+    return f"""
+    <div style="background:linear-gradient(135deg, rgba(15,23,42,0.92) 0%, rgba(7,11,22,0.96) 100%); border:1px solid rgba(34,211,238,0.25); border-radius:14px; padding:14px 16px; margin-top:10px; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:6px;">
+            <div style="font-size:0.8rem; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.04em;">
+                🚃 Train {html.escape(t_key)} Coach Formation
+            </div>
+            <div>{v_badge}</div>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:0.65rem; color:#475569; font-weight:600; text-transform:uppercase; margin-bottom:4px;">
+            <span>← Engine / Front</span>
+            <span>Rear / Guard →</span>
+        </div>
+        <div style="display:flex; gap:3px; align-items:center; overflow-x:auto; padding:18px 4px 10px; scrollbar-width:thin;">
+            {strip_html}
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:8px; margin-top:12px; background:rgba(7,11,22,0.6); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:10px 12px;">
+            <div>
+                <div style="font-size:0.65rem; color:#64748b; text-transform:uppercase; font-weight:700;">Coach</div>
+                <div style="font-size:1.05rem; font-weight:800; color:#22d3ee;">{html.escape(c_id)}{seat_sub}</div>
+            </div>
+            <div>
+                <div style="font-size:0.65rem; color:#64748b; text-transform:uppercase; font-weight:700;">Position</div>
+                <div style="font-size:1.0rem; font-weight:800; color:#f8fafc;">{exact_index + 1} of {total_coaches}</div>
+            </div>
+            <div>
+                <div style="font-size:0.65rem; color:#64748b; text-transform:uppercase; font-weight:700;">Section</div>
+                <div style="font-size:0.95rem; font-weight:800; color:{pos_color};">{rel_pos}</div>
+            </div>
+            <div>
+                <div style="font-size:0.65rem; color:#64748b; text-transform:uppercase; font-weight:700;">Before / After</div>
+                <div style="font-size:0.95rem; font-weight:750; color:#f8fafc;">{passengers_before} / {passengers_after} coaches</div>
+            </div>
+        </div>
+        <div style="font-size:0.68rem; color:#64748b; margin-top:8px; text-align:center;">
+            ⚠️ <b>DEMO TRAIN FORMATION</b> &mdash; Prototype data. Computed dynamically from train formation sequence.
+        </div>
+    </div>
+    """
+
+
 def render_coach_seat_map_html(coach: str, seat: str, berth: str) -> str:
     """Renders sleek, compact Vande Bharat AC Chair Car seat layout with user's seat highlighted."""
     seat_clean = str(seat).strip()
@@ -2697,6 +2855,7 @@ def render_verified_ticket_card(ticket: Dict[str, Any]) -> None:
     </div>
     """
     st.markdown(clean_html(ticket_html), unsafe_allow_html=True)
+    st.markdown(clean_html(render_coach_formation_html(tr_num, coach, seat)), unsafe_allow_html=True)
     st.markdown(clean_html(render_coach_seat_map_html(coach, seat, berth_type)), unsafe_allow_html=True)
 
     col_track, col_alarm, col_dl, col_clear = st.columns([2.0, 2.0, 2.0, 1.0])
@@ -3093,6 +3252,16 @@ def render_train_info(train: Dict[str, Any], section: Dict[str, Any], weather: O
         """,
         unsafe_allow_html=True,
     )
+
+    # Interactive Coach Position Locator matching user spec
+    with st.expander(f"🚃 Find My Coach in Train {train_num} (Exact Physical Formation)", expanded=False):
+        c_col1, c_col2 = st.columns([1, 1])
+        with c_col1:
+            find_coach = st.text_input("Coach ID (e.g. B1, S1, A1, C2)", value="B1", key=f"fcoach_{train_num}").strip().upper()
+        with c_col2:
+            find_seat = st.text_input("Seat / Berth (e.g. 36A, 42)", value="36A", key=f"fseat_{train_num}").strip()
+        if find_coach:
+            st.markdown(clean_html(render_coach_formation_html(train_num, find_coach, find_seat)), unsafe_allow_html=True)
 
 
 def render_journey_and_map(train: Dict[str, Any], section: Dict[str, Any]) -> None:

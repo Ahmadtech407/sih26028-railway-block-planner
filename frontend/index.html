@@ -253,6 +253,46 @@
         </div>
       </section>
 
+      <!-- ============================================================
+           FIND MY COACH: Exact Coach Position Locator
+           ============================================================ -->
+      <section class="coach-finder-card">
+        <div class="lower-card-title" style="margin-bottom:14px;">
+          <span>&#x1F683;</span> Find My Coach &mdash; Exact Position Locator
+        </div>
+        <div style="font-size:0.73rem; color:#64748b; margin-bottom:14px; line-height:1.5; background:rgba(245,158,11,0.07); border:1px solid rgba(245,158,11,0.2); border-radius:8px; padding:8px 12px;">
+          &#x26A0;&#xFE0F; <b style="color:#f59e0b;">DEMO TRAIN FORMATION</b> &mdash; Prototype data only.
+          Position computed dynamically from stored coach sequence (never guessed).
+          Not live Indian Railways data.
+        </div>
+        <div class="coach-finder-inputs">
+          <div class="input-field-group" style="flex:1.2;">
+            <label class="input-label">&#x1F686; Train Number</label>
+            <select id="coach-train-selector" class="st-select">
+              <option value="22436">22436 &middot; Vande Bharat Express</option>
+              <option value="12301">12301 &middot; Howrah Rajdhani</option>
+              <option value="12004">12004 &middot; Lucknow Swarna Shatabdi</option>
+              <option value="12424">12424 &middot; Dibrugarh Rajdhani (Formation N/A)</option>
+            </select>
+          </div>
+          <div class="input-field-group" style="flex:0.7;">
+            <label class="input-label">&#x1F683; Coach ID</label>
+            <input type="text" id="coach-id-input" class="st-text-input" placeholder="e.g. B1" value="B1"
+              autocomplete="off" style="text-transform:uppercase;">
+          </div>
+          <div class="input-field-group" style="flex:0.7;">
+            <label class="input-label">&#x1F4BA; Seat / Berth</label>
+            <input type="text" id="coach-seat-input" class="st-text-input" placeholder="e.g. 36A" value="36A"
+              autocomplete="off">
+          </div>
+          <div style="display:flex; align-items:flex-end; padding-bottom:2px;">
+            <button id="coach-find-btn" class="coach-find-btn">&#x1F50D; Locate Coach</button>
+          </div>
+        </div>
+        <!-- Result panel injected by app.js -->
+        <div id="coach-formation-panel" style="display:none; margin-top:20px;"></div>
+      </section>
+
     </main>
 
     <!-- ==============================================================

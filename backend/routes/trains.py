@@ -262,3 +262,51 @@ async def rollback_champion_model():
         raise HTTPException(status_code=400, detail=result.get("message", "Rollback failed"))
     return result
 
+
+@router.get("/{train_number}/formation", summary="Get train-specific coach formation / composition")
+async def get_coach_formation(train_number: str):
+    """
+    Returns the exact coach composition for a specific train, sorted by sequence (front-to-rear).
+
+    ACCURACY CONTRACT:
+    - coaches[] is ordered exactly as the physical formation (front → rear).
+    - Use findIndex() to determine a coach's position — never assume from coach ID.
+    - If verificationStatus == 'UNAVAILABLE': display an unavailability notice; NEVER guess.
+
+    verificationStatus values:
+    - VERIFIED: Formation confirmed from official prototype source.
+    - PARTIALLY_VERIFIED: Formation partially confirmed; some coaches may differ on the day.
+    - UNAVAILABLE: Formation data not loaded for this train — do not infer any position.
+    """
+    import os as _os
+    data_file = _os.path.normpath(
+        _os.path.join(_os.path.dirname(__file__), "..", "data", "coach_formations.json")
+    )
+    try:
+        with open(data_file, "r", encoding="utf-8") as fh:
+            all_formations = json.load(fh)
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=503,
+            detail="Coach formation data file not found. Service temporarily unavailable.",
+        )
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=503,
+            detail="Coach formation data is malformed. Service temporarily unavailable.",
+        )
+
+    formations = all_formations.get("formations", {})
+    formation = formations.get(train_number)
+
+    if formation is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"Coach formation data is currently unavailable for train '{train_number}'. "
+                "This does not mean the coach does not exist — formation data has simply "
+                "not been loaded for this train number."
+            ),
+        )
+
+    return formation

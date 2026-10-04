@@ -1,0 +1,88 @@
+{
+  "_meta": {
+    "schema": "coach-formation-v1",
+    "description": "Train-specific coach composition data. Each train has a unique, independently sourced formation. PROTOTYPE DATA — for demonstration only. All formations are labeled with verificationStatus. Position is computed dynamically via findIndex — never hardcoded.",
+    "lastUpdated": "2026-10-04",
+    "note": "DEMO TRAIN FORMATION — Not live Indian Railways data"
+  },
+  "formations": {
+    "22436": {
+      "trainNumber": "22436",
+      "trainName": "Vande Bharat Express (CDG–JAT)",
+      "formationVersion": "VB-CDG-JAT-v3",
+      "lastUpdated": "2026-09-15",
+      "effectiveFrom": "2026-06-01",
+      "effectiveUntil": null,
+      "source": "PROTOTYPE_DATASET",
+      "verificationStatus": "VERIFIED",
+      "totalCoaches": 7,
+      "coaches": [
+        { "sequence": 1, "coachId": "LOCO",  "type": "LOCOMOTIVE",   "displayLabel": "LOCO",  "class": null,    "berths": null,  "note": "Power Car (Front)" },
+        { "sequence": 2, "coachId": "C1",    "type": "CHAIR_CAR",    "displayLabel": "C1",    "class": "CC",    "berths": 52,    "note": null },
+        { "sequence": 3, "coachId": "C2",    "type": "CHAIR_CAR",    "displayLabel": "C2",    "class": "CC",    "berths": 52,    "note": null },
+        { "sequence": 4, "coachId": "B1",    "type": "SLEEPER",      "displayLabel": "B1",    "class": "SL",    "berths": 72,    "note": null },
+        { "sequence": 5, "coachId": "B2",    "type": "SLEEPER",      "displayLabel": "B2",    "class": "SL",    "berths": 72,    "note": null },
+        { "sequence": 6, "coachId": "B3",    "type": "SLEEPER",      "displayLabel": "B3",    "class": "SL",    "berths": 72,    "note": null },
+        { "sequence": 7, "coachId": "A1",    "type": "AC_FIRST",     "displayLabel": "A1",    "class": "1A",    "berths": 18,    "note": "Pantry Car attached" }
+      ],
+      "locomotivePosition": "FRONT"
+    },
+    "12301": {
+      "trainNumber": "12301",
+      "trainName": "Howrah Rajdhani Express",
+      "formationVersion": "RAJ-HWH-v5",
+      "lastUpdated": "2026-09-10",
+      "effectiveFrom": "2026-04-01",
+      "effectiveUntil": null,
+      "source": "PROTOTYPE_DATASET",
+      "verificationStatus": "VERIFIED",
+      "totalCoaches": 9,
+      "coaches": [
+        { "sequence": 1, "coachId": "LOCO",  "type": "LOCOMOTIVE",   "displayLabel": "LOCO",  "class": null,    "berths": null,  "note": "WAP-7 (Front)" },
+        { "sequence": 2, "coachId": "S1",    "type": "SLEEPER",      "displayLabel": "S1",    "class": "SL",    "berths": 72,    "note": null },
+        { "sequence": 3, "coachId": "S2",    "type": "SLEEPER",      "displayLabel": "S2",    "class": "SL",    "berths": 72,    "note": null },
+        { "sequence": 4, "coachId": "A1",    "type": "AC_FIRST",     "displayLabel": "A1",    "class": "1A",    "berths": 18,    "note": null },
+        { "sequence": 5, "coachId": "A2",    "type": "AC_FIRST",     "displayLabel": "A2",    "class": "1A",    "berths": 18,    "note": null },
+        { "sequence": 6, "coachId": "B1",    "type": "SLEEPER",      "displayLabel": "B1",    "class": "SL",    "berths": 72,    "note": null },
+        { "sequence": 7, "coachId": "B2",    "type": "SLEEPER",      "displayLabel": "B2",    "class": "SL",    "berths": 72,    "note": null },
+        { "sequence": 8, "coachId": "B3",    "type": "SLEEPER",      "displayLabel": "B3",    "class": "SL",    "berths": 72,    "note": null },
+        { "sequence": 9, "coachId": "LOCO2", "type": "LOCOMOTIVE",   "displayLabel": "LOCO",  "class": null,    "berths": null,  "note": "Power Car (Rear)" }
+      ],
+      "locomotivePosition": "BOTH_ENDS"
+    },
+    "12004": {
+      "trainNumber": "12004",
+      "trainName": "Lucknow Swarna Shatabdi",
+      "formationVersion": "SHTB-LKO-v2",
+      "lastUpdated": "2026-08-20",
+      "effectiveFrom": "2026-01-01",
+      "effectiveUntil": null,
+      "source": "PROTOTYPE_DATASET",
+      "verificationStatus": "PARTIALLY_VERIFIED",
+      "totalCoaches": 7,
+      "coaches": [
+        { "sequence": 1, "coachId": "LOCO",  "type": "LOCOMOTIVE",   "displayLabel": "LOCO",  "class": null,    "berths": null,  "note": "WAP-5 (Front)" },
+        { "sequence": 2, "coachId": "D1",    "type": "CHAIR_CAR",    "displayLabel": "D1",    "class": "EC",    "berths": 56,    "note": "Executive Chair Car" },
+        { "sequence": 3, "coachId": "D2",    "type": "CHAIR_CAR",    "displayLabel": "D2",    "class": "EC",    "berths": 56,    "note": "Executive Chair Car" },
+        { "sequence": 4, "coachId": "B1",    "type": "SLEEPER",      "displayLabel": "B1",    "class": "SL",    "berths": 72,    "note": null },
+        { "sequence": 5, "coachId": "B2",    "type": "SLEEPER",      "displayLabel": "B2",    "class": "SL",    "berths": 72,    "note": null },
+        { "sequence": 6, "coachId": "A1",    "type": "AC_FIRST",     "displayLabel": "A1",    "class": "1A",    "berths": 18,    "note": null },
+        { "sequence": 7, "coachId": "LOCO2", "type": "LOCOMOTIVE",   "displayLabel": "LOCO",  "class": null,    "berths": null,  "note": "Power Car (Rear)" }
+      ],
+      "locomotivePosition": "BOTH_ENDS"
+    },
+    "12424": {
+      "trainNumber": "12424",
+      "trainName": "Dibrugarh Rajdhani Express",
+      "formationVersion": null,
+      "lastUpdated": null,
+      "effectiveFrom": null,
+      "effectiveUntil": null,
+      "source": "UNAVAILABLE",
+      "verificationStatus": "UNAVAILABLE",
+      "totalCoaches": null,
+      "coaches": [],
+      "locomotivePosition": null
+    }
+  }
+}
