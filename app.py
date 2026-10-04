@@ -268,6 +268,17 @@ def minutes_to_hhmm(minutes: int) -> str:
 # COACH FORMATION LOCATOR (DATA-DRIVEN)
 # ============================================================
 
+
+def clean_html(s: str) -> str:
+    """Strip comments and leading/trailing whitespace from every line so Streamlit never creates code blocks."""
+    if not s:
+        return ""
+    import re
+    s = re.sub(r'<!--.*?-->', '', s, flags=re.DOTALL)
+    lines = [line.strip() for line in s.splitlines() if line.strip()]
+    return "".join(lines)
+
+
 def render_coach_position_section(default_train: str = "22436"):
     """Renders train-specific coach formation locator with exact coach index and verification status."""
     st.subheader("🚃 Train Coach Position Locator (Data-Driven)")
@@ -315,7 +326,7 @@ def render_coach_position_section(default_train: str = "22436"):
                 pass
 
     if not formation or formation.get("verificationStatus") == "UNAVAILABLE" or not formation.get("coaches"):
-        st.markdown(f"""
+        unavail_html = f"""
         <div style="background:rgba(244,63,94,0.08); border:1.5px solid #f43f5e; border-radius:12px; padding:16px 20px; margin-top:14px; text-align:center;">
             <div style="font-size:1.8rem; margin-bottom:6px;">⚠️</div>
             <div style="font-size:1.05rem; font-weight:800; color:#f43f5e; margin-bottom:6px;">Coach Formation Data Unavailable</div>
@@ -325,7 +336,8 @@ def render_coach_position_section(default_train: str = "22436"):
                 <b style="color:#f43f5e;">Position is NOT shown</b> to preserve accuracy. A guess would be worse than no information.
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """
+        st.markdown(clean_html(unavail_html), unsafe_allow_html=True)
         return
 
     coaches = formation.get("coaches", [])
@@ -337,7 +349,7 @@ def render_coach_position_section(default_train: str = "22436"):
 
     if exact_index == -1:
         known = ", ".join(c.get("coachId", "") for c in coaches if c.get("type") != "LOCOMOTIVE")
-        st.markdown(f"""
+        notfound_html = f"""
         <div style="background:rgba(245,158,11,0.08); border:1.5px solid #f59e0b; border-radius:12px; padding:16px 20px; margin-top:14px; text-align:center;">
             <div style="font-size:1.05rem; font-weight:800; color:#d97706; margin-bottom:6px;">⚠️ Coach "{coach_input}" not found in Train {train_choice}</div>
             <div style="font-size:0.85rem; color:#475569; line-height:1.6;">
@@ -346,7 +358,8 @@ def render_coach_position_section(default_train: str = "22436"):
                 Position is not guessed &mdash; accuracy is the primary requirement.
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """
+        st.markdown(clean_html(notfound_html), unsafe_allow_html=True)
         return
 
     total_coaches = len(coaches)
@@ -403,7 +416,7 @@ def render_coach_position_section(default_train: str = "22436"):
         """
 
     seat_msg = f" &bull; Seat: <b>{seat_input}</b>" if seat_input else ""
-    st.markdown(f"""
+    card_html = f"""
     <div style="background:#ffffff; border:1.5px solid #e2e8f0; border-radius:14px; padding:16px 20px; margin-top:12px; box-shadow:0 2px 10px rgba(0,0,0,0.04);">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
             <div style="font-size:0.9rem; font-weight:750; color:#1e293b;">
@@ -429,7 +442,8 @@ def render_coach_position_section(default_train: str = "22436"):
             </div>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """
+    st.markdown(clean_html(card_html), unsafe_allow_html=True)
 
 
 def main():
