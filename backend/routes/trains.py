@@ -300,6 +300,22 @@ async def get_coach_formation(train_number: str):
     formation = formations.get(train_number)
 
     if formation is None:
+        pairs = {
+            "12302": "12301",
+            "12301": "12302",
+            "22435": "22436",
+            "22436": "22435",
+            "12423": "12424",
+            "12424": "12423",
+            "12003": "12004",
+            "12004": "12003",
+        }
+        alt_key = pairs.get(train_number)
+        if alt_key and alt_key in formations:
+            formation = dict(formations[alt_key])
+            formation["trainNumber"] = train_number
+
+    if formation is None:
         raise HTTPException(
             status_code=404,
             detail=(

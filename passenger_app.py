@@ -2555,13 +2555,29 @@ body {{ font-family: Arial, sans-serif; background: #f8fafc; color: #0f172a; mar
 
 @functools.lru_cache(maxsize=1)
 def load_coach_formations() -> Dict[str, Any]:
-    """Load train-specific coach compositions from JSON file."""
+    """Load train-specific coach compositions from JSON file with paired rake resolution."""
     import json
     json_path = os.path.join(os.path.dirname(__file__), "backend", "data", "coach_formations.json")
     if os.path.exists(json_path):
         try:
             with open(json_path, "r", encoding="utf-8") as f:
-                return json.load(f).get("formations", {})
+                forms = json.load(f).get("formations", {})
+                pairs = {
+                    "12302": "12301",
+                    "12301": "12302",
+                    "22435": "22436",
+                    "22436": "22435",
+                    "12423": "12424",
+                    "12424": "12423",
+                    "12003": "12004",
+                    "12004": "12003",
+                }
+                for k, v in pairs.items():
+                    if k not in forms and v in forms:
+                        cloned = dict(forms[v])
+                        cloned["trainNumber"] = k
+                        forms[k] = cloned
+                return forms
         except Exception:
             pass
     return {}
