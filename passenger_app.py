@@ -2553,34 +2553,44 @@ body {{ font-family: Arial, sans-serif; background: #f8fafc; color: #0f172a; mar
 
 
 
-@functools.lru_cache(maxsize=1)
+@st.cache_data(ttl=30, show_spinner=False)
 def load_coach_formations() -> Dict[str, Any]:
     """Load train-specific coach compositions from JSON file with paired rake resolution."""
     import json
-    json_path = os.path.join(os.path.dirname(__file__), "backend", "data", "coach_formations.json")
-    if os.path.exists(json_path):
-        try:
-            with open(json_path, "r", encoding="utf-8") as f:
-                forms = json.load(f).get("formations", {})
-                pairs = {
-                    "12302": "12301",
-                    "12301": "12302",
-                    "22435": "22436",
-                    "22436": "22435",
-                    "12423": "12424",
-                    "12424": "12423",
-                    "12003": "12004",
-                    "12004": "12003",
-                }
-                for k, v in pairs.items():
-                    if k not in forms and v in forms:
-                        cloned = dict(forms[v])
-                        cloned["trainNumber"] = k
-                        forms[k] = cloned
-                return forms
-        except Exception:
-            pass
-    return {}
+    candidate_paths = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "backend", "data", "coach_formations.json"),
+        os.path.join(os.getcwd(), "backend", "data", "coach_formations.json"),
+        os.path.join(os.path.dirname(__file__), "backend", "data", "coach_formations.json"),
+        "backend/data/coach_formations.json",
+    ]
+    forms = {}
+    for p in candidate_paths:
+        if p and os.path.exists(p):
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    forms = data.get("formations", {})
+                    if forms:
+                        break
+            except Exception:
+                pass
+
+    pairs = {
+        "12302": "12301",
+        "12301": "12302",
+        "22435": "22436",
+        "22436": "22435",
+        "12423": "12424",
+        "12424": "12423",
+        "12003": "12004",
+        "12004": "12003",
+    }
+    for k, v in pairs.items():
+        if k not in forms and v in forms:
+            cloned = dict(forms[v])
+            cloned["trainNumber"] = k
+            forms[k] = cloned
+    return forms
 
 
 def render_coach_formation_html(train_number: str, coach_id: str, seat_number: str = "") -> str:
@@ -3323,11 +3333,19 @@ def render_train_info(train: Dict[str, Any], section: Dict[str, Any], weather: O
         fcoach_key = f"fcoach_{train_num}"
         fseat_key = f"fseat_{train_num}"
 
-        # Self-healing session state: auto-correct invalid default 'B1' on Chair-Car trains
+        # Self-healing session state: auto-correct if currently selected coach is not valid for this train
         if fcoach_key in st.session_state:
             curr_val = str(st.session_state[fcoach_key]).strip().upper()
-            if pass_coaches and curr_val not in pass_coaches and curr_val == "B1":
+            if pass_coaches and curr_val not in pass_coaches:
                 st.session_state[fcoach_key] = default_coach
+
+        if fseat_key in st.session_state:
+            curr_seat = str(st.session_state[fseat_key]).strip()
+            # If switching from Chair Car (e.g. 36A) to Sleeper/AC, change to numeric berth
+            if not (default_coach.startswith("C") or default_coach.startswith("E")) and curr_seat.endswith(("A", "B", "C", "D", "E")):
+                st.session_state[fseat_key] = "36"
+            elif (default_coach.startswith("C") or default_coach.startswith("E")) and not curr_seat.endswith(("A", "B", "C", "D", "E")):
+                st.session_state[fseat_key] = "36A"
 
         c_col1, c_col2 = st.columns([1, 1])
         with c_col1:
