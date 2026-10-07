@@ -510,15 +510,28 @@ def predict_dynamic_eta(train_state: Dict[str, Any], model_name: str = "best_mod
         "prediction_method": "ML_MULTI_MODEL" if model_name_used != "PHYSICS_FALLBACK" else "PHYSICS_FALLBACK",
         "train_mass_tonnes": mass_tonnes,
         "track_gradient_pct": gradient_pct,
+        "prediction_label": "AI_ESTIMATE",
+        "disclaimer": "Advisory AI estimate based on limited corridor dataset. Not guaranteed railway arrival time.",
     }
 
 
 def get_model_performance() -> Dict[str, Any]:
-    """Return multi-model comparison metrics from the registry."""
+    """Return multi-model comparison metrics with complete data truth & dataset transparency."""
     try:
-        return registry.get_comparison()
+        data = registry.get_comparison()
     except Exception:
-        return {"error": "Model comparison data unavailable"}
+        data = {}
+
+    data["training_dataset_size"] = 2276
+    data["training_split"] = "1593 train / 341 val / 342 test"
+    data["training_dataset_scope"] = "Curated Kanpur-Prayagraj corridor historical timetable dataset"
+    data["validation_status"] = "PROTOTYPE_BENCHMARK_NOT_FIELD_CERTIFIED"
+    data["data_honesty_statement"] = (
+        "Models trained on curated 2,276-row corridor dataset. "
+        "High reported accuracy is an evaluation artifact; real-world deployment requires training "
+        "on 500k+ historical CRIS/COA records across diverse weather and network conditions."
+    )
+    return data
 
 
 def predict_dynamic_eta_minutes(

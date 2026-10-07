@@ -303,10 +303,16 @@ async def get_coach_formation(train_number: str):
         raise HTTPException(
             status_code=404,
             detail=(
-                f"Coach formation data is currently unavailable for train '{train_number}'. "
-                "This does not mean the coach does not exist — formation data has simply "
-                "not been loaded for this train number."
+                f"Coach formation data is currently unavailable (UNAVAILABLE) for train '{train_number}'. "
+                "No verified formation exists in database. System strictly avoids generating "
+                "synthetic or guessed coach layouts."
             ),
         )
 
-    return formation
+    res = dict(formation)
+    res["formation_status"] = "VERIFIED_STATIC"
+    res["live_operating_rake_available"] = False
+    res["truth_notice"] = (
+        "Live operating rake unavailable. Showing verified/static formation from official standard timetable records."
+    )
+    return res

@@ -224,7 +224,7 @@ def api_commit_block(
     end_min: int,
     work_type: str,
 ) -> Dict[str, Any]:
-    """Calls POST /api/blocks/commit"""
+    """Calls POST /api/blocks/commit with hard safety gate handling."""
     try:
         payload = {
             "block_id": block_id,
@@ -236,9 +236,64 @@ def api_commit_block(
         res = requests.post(f"{BACKEND_URL}/api/blocks/commit", json=payload, timeout=5.0)
         if res.status_code == 200:
             return res.json()
+        else:
+            try:
+                err_detail = res.json().get("detail", res.text)
+            except Exception:
+                err_detail = res.text
+            return {"status": "ERROR", "message": err_detail}
     except Exception as e:
-        st.error(f"Commit API error: {e}")
-    return {"status": "ERROR", "message": "Failed to commit block schedule to backend."}
+        return {"status": "ERROR", "message": f"Commit API error: {e}"}
+
+
+def api_get_clearance(block_id: str) -> Optional[Dict[str, Any]]:
+    """Calls GET /api/clearance/{block_id}"""
+    try:
+        res = requests.get(f"{BACKEND_URL}/api/clearance/{block_id}", timeout=3.0)
+        if res.status_code == 200:
+            return res.json()
+    except Exception:
+        pass
+    return None
+
+
+def api_advance_clearance(block_id: str, target_state: str, role: str, user_id: str, comment: str = "") -> Dict[str, Any]:
+    """Calls POST /api/clearance/{block_id}/advance"""
+    try:
+        payload = {
+            "target_state": target_state,
+            "role": role,
+            "user_id": user_id,
+            "comment": comment,
+        }
+        res = requests.post(f"{BACKEND_URL}/api/clearance/{block_id}/advance", json=payload, timeout=5.0)
+        if res.status_code == 200:
+            return {"status": "SUCCESS", "data": res.json()}
+        else:
+            try:
+                err = res.json().get("detail", res.text)
+            except Exception:
+                err = res.text
+            return {"status": "ERROR", "message": err}
+    except Exception as e:
+        return {"status": "ERROR", "message": str(e)}
+
+
+def api_reject_clearance(block_id: str, role: str, user_id: str, reason: str) -> Dict[str, Any]:
+    """Calls POST /api/clearance/{block_id}/reject"""
+    try:
+        payload = {"role": role, "user_id": user_id, "reason": reason}
+        res = requests.post(f"{BACKEND_URL}/api/clearance/{block_id}/reject", json=payload, timeout=5.0)
+        if res.status_code == 200:
+            return {"status": "SUCCESS", "data": res.json()}
+        else:
+            try:
+                err = res.json().get("detail", res.text)
+            except Exception:
+                err = res.text
+            return {"status": "ERROR", "message": err}
+    except Exception as e:
+        return {"status": "ERROR", "message": str(e)}
 
 
 def fetch_committed_blocks() -> List[Dict[str, Any]]:
@@ -881,34 +936,129 @@ def main():
             conf_score = rec.get("recommendation_confidence_pct", 85.0)
             st.progress(int(conf_score), text=f"Recommendation Confidence: {conf_score:.1f}%")
 
-            # Action Buttons & Alternative Slots
-            b1, b2 = st.columns(2)
-            with b1:
-                if st.button("✅ APPROVE & COMMIT BLOCK TO TMS", type="primary", use_container_width=True):
-                    commit_res = api_commit_block(
-                        block_id=block_id,
-                        section_id=section,
-                        start_min=rec["allocated_start_min"],
-                        end_min=rec["allocated_end_min"],
-                        work_type=work_type,
-                    )
-                    if commit_res.get("status") == "SUCCESS":
-                        st.session_state.accepted_block = rec
-                        st.success(f"🎉 Block {block_id} officially committed to Indian Railways Central TMS!")
-                        st.info(f"**Transaction ID:** `{commit_res.get('transaction_id')}`\n\n**Caution Notice:** {commit_res.get('caution_board_notice')}")
-                    else:
-                        st.error(commit_res.get("message", "Failed to commit block schedule."))
+            # Multi-Department Clearance & Safety Gate Workflow Panel
+            st.markdown("---")
+            st.subheader(f"🛡️ Multi-Department Safety Clearance Gate: `{block_id}`")
+            st.caption("SAFETY POLICY: AI recommendations cannot independently authorize track possession. Mandatory human reviews required.")
 
-            with b2:
-                alternatives = rec.get("alternatives", [])
-                if len(alternatives) > 1:
-                    with st.expander(f"🔍 View Top {len(alternatives)} Feasible Alternative Slots"):
-                        for rank, alt in enumerate(alternatives, start=1):
-                            st.markdown(
-                                f"**Rank #{rank}: {alt['formatted_window']}** | Cost: `{alt.get('weighted_cost', 0):.1f}` | "
-                                f"Risk: `{alt.get('risk_level', 'LOW')}` | Affected Trains: `{len(alt.get('affected_trains', []))}` | "
-                                f"Delay: `{alt.get('total_delay_min', 0)} min`"
-                            )
+            clearance = api_get_clearance(block_id)
+            c_state = clearance.get("current_state", "AI_RECOMMENDED") if clearance else "AI_RECOMMENDED"
+
+            # Review status card
+            st.markdown(f"""
+            <div style="background: rgba(30, 58, 138, 0.08); border: 1.5px solid #3B82F6; border-radius: 10px; padding: 14px; margin-bottom: 12px;">
+                <div style="font-size: 1.05rem; font-weight: 700; color: #1E3A8A; margin-bottom: 6px;">
+                    MAINTENANCE BLOCK: {block_id}
+                </div>
+                <div style="font-size: 0.9rem; margin-bottom: 4px;">
+                    <b>AI Recommendation:</b> {rec['formatted_window']} (OR-Tools CP-SAT)
+                </div>
+                <div style="font-size: 0.9rem; margin-bottom: 4px;">
+                    <b>Current Review Status:</b> <span style="background: #FEF3C7; color: #92400E; padding: 2px 8px; border-radius: 4px; font-weight: 700;">{c_state}</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Department review indicators
+            st.markdown("##### 👥 Departmental Review Progress")
+            rev_cols = st.columns(4)
+            is_ops_done = c_state in ["ENGINEERING_REVIEW", "TRACTION_OHE_REVIEW", "AUTHORIZED", "APPROVED"]
+            is_eng_done = c_state in ["TRACTION_OHE_REVIEW", "AUTHORIZED", "APPROVED"]
+            is_trac_done = c_state in ["AUTHORIZED", "APPROVED"]
+            is_final_done = (c_state == "APPROVED")
+
+            with rev_cols[0]:
+                st.markdown(f"**1. Operations Review**<br>{'🟢 ✓ APPROVED' if is_ops_done else ('🟡 IN REVIEW' if c_state == 'OPERATIONS_REVIEW' else '⚪ PENDING')}", unsafe_allow_html=True)
+            with rev_cols[1]:
+                st.markdown(f"**2. Engineering (P-Way)**<br>{'🟢 ✓ APPROVED' if is_eng_done else ('🟡 IN REVIEW' if c_state == 'ENGINEERING_REVIEW' else '⚪ PENDING')}", unsafe_allow_html=True)
+            with rev_cols[2]:
+                st.markdown(f"**3. Traction (OHE)**<br>{'🟢 ✓ APPROVED' if is_trac_done else ('🟡 IN REVIEW' if c_state == 'TRACTION_OHE_REVIEW' else '⚪ PENDING')}", unsafe_allow_html=True)
+            with rev_cols[3]:
+                st.markdown(f"**4. Final Authorization**<br>{'🟢 ✓ APPROVED' if is_final_done else ('🟡 AUTHORIZING' if c_state == 'AUTHORIZED' else '🔒 LOCKED')}", unsafe_allow_html=True)
+
+            # Review Actions based on Role
+            st.markdown("##### ✍️ Officer Review Action")
+            rc1, rc2, rc3 = st.columns([2, 2, 3])
+            with rc1:
+                reviewer_role = st.selectbox(
+                    "Active Reviewer Role",
+                    ["SECTION_CONTROLLER", "OPERATIONS", "ENGINEERING_PWAY", "TRACTION_OHE", "ADMIN"],
+                    key="rev_role_select",
+                )
+            with rc2:
+                officer_id = st.text_input("Officer / Employee ID", value="IR_CONTROLLER_01", key="rev_officer_id")
+            with rc3:
+                review_comment = st.text_input("Review Remarks / Observations", value="Safety buffers and track isolation verified.", key="rev_comment")
+
+            next_state_map = {
+                "AI_RECOMMENDED": "OPERATIONS_REVIEW",
+                "OPERATIONS_REVIEW": "ENGINEERING_REVIEW",
+                "ENGINEERING_REVIEW": "TRACTION_OHE_REVIEW",
+                "TRACTION_OHE_REVIEW": "AUTHORIZED",
+                "AUTHORIZED": "APPROVED",
+            }
+            next_state = next_state_map.get(c_state)
+
+            act_col1, act_col2, act_col3 = st.columns(3)
+            with act_col1:
+                if next_state:
+                    if st.button(f"⏩ Advance Review to: {next_state}", type="primary", use_container_width=True):
+                        adv_res = api_advance_clearance(block_id, next_state, reviewer_role, officer_id, review_comment)
+                        if adv_res.get("status") == "SUCCESS":
+                            st.success(f"Clearance advanced to {next_state}!")
+                            st.rerun()
+                        else:
+                            st.error(f"Cannot advance: {adv_res.get('message')}")
+                elif c_state == "APPROVED":
+                    st.success("✅ Multi-Department Clearance Fully APPROVED!")
+                else:
+                    st.info(f"Block is in terminal state: {c_state}")
+
+            with act_col2:
+                if c_state not in ["APPROVED", "REJECTED", "CANCELLED"]:
+                    if st.button("❌ Reject Proposed Block", type="secondary", use_container_width=True):
+                        rej_res = api_reject_clearance(block_id, reviewer_role, officer_id, review_comment or "Operational conflict identified.")
+                        if rej_res.get("status") == "SUCCESS":
+                            st.warning("Block marked as REJECTED.")
+                            st.rerun()
+                        else:
+                            st.error(f"Cannot reject: {rej_res.get('message')}")
+
+            with act_col3:
+                can_commit = (c_state == "APPROVED")
+                if can_commit:
+                    if st.button("🚂 COMMIT APPROVED BLOCK TO TMS", type="primary", use_container_width=True):
+                        commit_res = api_commit_block(
+                            block_id=block_id,
+                            section_id=section,
+                            start_min=rec["allocated_start_min"],
+                            end_min=rec["allocated_end_min"],
+                            work_type=work_type,
+                        )
+                        if commit_res.get("status") == "SUCCESS":
+                            st.session_state.accepted_block = rec
+                            st.success(f"🎉 Block {block_id} officially committed to Indian Railways Central TMS!")
+                            st.info(f"**Transaction ID:** `{commit_res.get('transaction_id')}`\n\n**Caution Notice:** {commit_res.get('caution_board_notice')}")
+                        else:
+                            st.error(commit_res.get("message", "Failed to commit block schedule."))
+                else:
+                    st.button("🔒 TMS COMMIT LOCKED (Approval Required)", disabled=True, use_container_width=True)
+
+            # Audit History Display
+            if clearance and clearance.get("history"):
+                with st.expander(f"📜 View Immutable Audit Trail ({len(clearance['history'])} records)"):
+                    hist_df = pd.DataFrame(clearance["history"])
+                    st.dataframe(hist_df, use_container_width=True, hide_index=True)
+
+            alternatives = rec.get("alternatives", [])
+            if len(alternatives) > 1:
+                with st.expander(f"🔍 View Top {len(alternatives)} Feasible Alternative Slots"):
+                    for rank, alt in enumerate(alternatives, start=1):
+                        st.markdown(
+                            f"**Rank #{rank}: {alt['formatted_window']}** | Cost: `{alt.get('weighted_cost', 0):.1f}` | "
+                            f"Risk: `{alt.get('risk_level', 'LOW')}` | Affected Trains: `{len(alt.get('affected_trains', []))}` | "
+                            f"Delay: `{alt.get('total_delay_min', 0)} min`"
+                        )
 
     # 12. Conflict Analysis Status
     st.subheader("🔴 Preliminary Conflict Scan")

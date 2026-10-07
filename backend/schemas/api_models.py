@@ -318,6 +318,7 @@ class ConflictCheckResponse(BaseModel):
 class BlockOptimizationRequest(BaseModel):
     block_id: str = Field("MNT-KNP-04", example="MNT-KNP-04")
     section_id: str = Field("KNP-PRYJ-SEC-B", example="KNP-PRYJ-SEC-B")
+    track_id: Optional[str] = Field("KNP-PRYJ-DN-MAIN", example="KNP-PRYJ-DN-MAIN")
     duration_minutes: int = Field(120, ge=15, le=360, example=120)
     earliest_start_min: int = Field(600, ge=0, le=1440, description="10:00 AM (600 mins)", example=600)
     latest_end_min: int = Field(900, ge=0, le=1440, description="03:00 PM (900 mins)", example=900)
@@ -357,6 +358,10 @@ class BlockOptimizationResponse(BaseModel):
     block_id: str
     section_id: str
     status: str  # "OPTIMAL_SCHEDULED" or "NO_FEASIBLE_SLOT"
+    track_id: Optional[str] = "KNP-PRYJ-DN-MAIN"
+    clearance_state: Optional[str] = "AI_RECOMMENDED"
+    affected_tracks: List[str] = Field(default_factory=list)
+    coexistence_safe: Optional[bool] = True
     allocated_start_min: Optional[int] = None
     allocated_end_min: Optional[int] = None
     formatted_window: Optional[str] = None

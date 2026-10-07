@@ -35,7 +35,48 @@ def _init_sqlite_tables() -> None:
                     name TEXT NOT NULL,
                     identifier TEXT UNIQUE NOT NULL,
                     password_hash TEXT NOT NULL,
+                    role TEXT DEFAULT 'VIEWER',
                     created_at INTEGER NOT NULL
+                );
+            """)
+            try:
+                cur.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'VIEWER';")
+            except Exception:
+                pass
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS clearance_records (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    block_id TEXT UNIQUE NOT NULL,
+                    section_id TEXT NOT NULL,
+                    track_id TEXT,
+                    work_type TEXT,
+                    allocated_window TEXT,
+                    start_min INTEGER,
+                    end_min INTEGER,
+                    duration_minutes INTEGER,
+                    current_state TEXT NOT NULL,
+                    created_by TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    approved_at TEXT,
+                    rejected_at TEXT,
+                    cancelled_at TEXT,
+                    ai_recommendation_note TEXT,
+                    details_json TEXT
+                );
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS approval_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    block_id TEXT NOT NULL,
+                    clearance_id INTEGER,
+                    action TEXT NOT NULL,
+                    previous_state TEXT NOT NULL,
+                    new_state TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    comment TEXT,
+                    timestamp TEXT NOT NULL
                 );
             """)
             cur.execute("""
@@ -91,6 +132,7 @@ def create_user(
     identifier: str,
     password_hash: str,
     created_at: int,
+    role: str = "VIEWER",
 ) -> int:
     """Create a passenger account in Supabase (if configured) or SQLite fallback and return its ID."""
     _init_sqlite_tables()
@@ -106,6 +148,7 @@ def create_user(
                         "name": name,
                         "identifier": identifier,
                         "password_hash": password_hash,
+                        "role": role,
                         "created_at": created_at,
                     }
                 )
@@ -133,8 +176,8 @@ def create_user(
         with _get_sqlite_conn() as conn:
             cur = conn.cursor()
             cur.execute(
-                "INSERT INTO users (name, identifier, password_hash, created_at) VALUES (?, ?, ?, ?)",
-                (name, identifier, password_hash, created_at),
+                "INSERT INTO users (name, identifier, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?)",
+                (name, identifier, password_hash, role, created_at),
             )
             conn.commit()
             return int(cur.lastrowid)
@@ -759,3 +802,160 @@ def get_train_routes_from_db(train_number: str) -> List[Dict[str, Any]]:
     except Exception as exc:
         logger.error("get_train_routes_from_db failed: %s", exc)
         return []
+
+# ---------------------------------------------------------
+# Clearance & Multi-Department Approval Persistence
+# ---------------------------------------------------------
+
+def save_clearance_record(record: Dict[str, Any]) -> int:
+    """Persist or update a maintenance block clearance record in SQLite & Supabase."""
+    _init_sqlite_tables()
+    block_id = record["block_id"]
+    section_id = record.get("section_id", "KNP-PRYJ-SEC-B")
+    track_id = record.get("track_id", "KNP-PRYJ-DN-MAIN")
+    work_type = record.get("work_type", "Routine Maintenance")
+    allocated_window = record.get("allocated_window")
+    start_min = record.get("start_min")
+    end_min = record.get("end_min")
+    duration_minutes = record.get("duration_minutes", 120)
+    current_state = str(record.get("current_state", "DRAFT"))
+    created_by = record.get("created_by", "SYSTEM")
+    created_at = record.get("created_at") or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    updated_at = record.get("updated_at") or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    approved_at = record.get("approved_at")
+    rejected_at = record.get("rejected_at")
+    cancelled_at = record.get("cancelled_at")
+    ai_recommendation_note = record.get("ai_recommendation_note")
+    details_json = json.dumps(record.get("details", {}))
+
+    # 1. Supabase persistence if available
+    if is_supabase_configured():
+        try:
+            supabase.table("clearance_records").upsert({
+                "block_id": block_id,
+                "section_id": section_id,
+                "track_id": track_id,
+                "work_type": work_type,
+                "allocated_window": allocated_window,
+                "current_state": current_state,
+                "created_by": created_by,
+                "updated_at": updated_at,
+            }, on_conflict="block_id").execute()
+        except Exception as exc:
+            logger.debug("Supabase clearance record upsert warning: %s", exc)
+
+    # 2. Local SQLite primary persistence
+    with _get_sqlite_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO clearance_records (
+                block_id, section_id, track_id, work_type, allocated_window,
+                start_min, end_min, duration_minutes, current_state,
+                created_by, created_at, updated_at, approved_at, rejected_at,
+                cancelled_at, ai_recommendation_note, details_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(block_id) DO UPDATE SET
+                current_state=excluded.current_state,
+                allocated_window=excluded.allocated_window,
+                start_min=excluded.start_min,
+                end_min=excluded.end_min,
+                duration_minutes=excluded.duration_minutes,
+                updated_at=excluded.updated_at,
+                approved_at=excluded.approved_at,
+                rejected_at=excluded.rejected_at,
+                cancelled_at=excluded.cancelled_at,
+                ai_recommendation_note=excluded.ai_recommendation_note,
+                details_json=excluded.details_json
+        """, (
+            block_id, section_id, track_id, work_type, allocated_window,
+            start_min, end_min, duration_minutes, current_state,
+            created_by, created_at, updated_at, approved_at, rejected_at,
+            cancelled_at, ai_recommendation_note, details_json
+        ))
+        conn.commit()
+        return int(cur.lastrowid or 1)
+
+
+def get_clearance_record(block_id: str) -> Optional[Dict[str, Any]]:
+    """Retrieve persistent clearance record for a block."""
+    _init_sqlite_tables()
+    with _get_sqlite_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, block_id, section_id, track_id, work_type, allocated_window,
+                   start_min, end_min, duration_minutes, current_state,
+                   created_by, created_at, updated_at, approved_at, rejected_at,
+                   cancelled_at, ai_recommendation_note, details_json
+            FROM clearance_records WHERE block_id = ? LIMIT 1
+        """, (block_id,))
+        row = cur.fetchone()
+        if not row:
+            return None
+        res = dict(row)
+        res["history"] = get_approval_history(block_id)
+        return res
+
+
+def list_clearance_records() -> List[Dict[str, Any]]:
+    """List all persistent maintenance block clearance records."""
+    _init_sqlite_tables()
+    with _get_sqlite_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, block_id, section_id, track_id, work_type, allocated_window,
+                   start_min, end_min, duration_minutes, current_state,
+                   created_by, created_at, updated_at, approved_at, rejected_at,
+                   cancelled_at, ai_recommendation_note
+            FROM clearance_records ORDER BY updated_at DESC
+        """, ())
+        records = [dict(r) for r in cur.fetchall()]
+        for rec in records:
+            rec["history"] = get_approval_history(rec["block_id"])
+        return records
+
+
+def add_approval_history(item: Dict[str, Any]) -> int:
+    """Append an immutable approval audit entry to history."""
+    _init_sqlite_tables()
+    block_id = item["block_id"]
+    action = item["action"]
+    prev_state = str(item["previous_state"]) if item.get("previous_state") else "NONE" 
+    new_state = str(item["new_state"])
+    role = str(item["role"])
+    user_id = str(item["user_id"])
+    comment = item.get("comment")
+    ts = item.get("timestamp") or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+    with _get_sqlite_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO approval_history (
+                block_id, clearance_id, action, previous_state, new_state,
+                role, user_id, comment, timestamp
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            block_id, item.get("clearance_id"), action, prev_state, new_state,
+            role, user_id, comment, ts
+        ))
+        conn.commit()
+        return int(cur.lastrowid)
+
+
+def get_approval_history(block_id: str) -> List[Dict[str, Any]]:
+    """Retrieve chronological approval history audit trail for a block."""
+    _init_sqlite_tables()
+    with _get_sqlite_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, block_id, action, previous_state, new_state, role,
+                   user_id, comment, timestamp
+            FROM approval_history WHERE block_id = ? ORDER BY id ASC
+        """, (block_id,))
+        results = []
+        for r in cur.fetchall():
+            d = dict(r)
+            if d.get("previous_state") in ("NONE", "None", ""):
+                d["previous_state"] = None
+            results.append(d)
+        return results
+

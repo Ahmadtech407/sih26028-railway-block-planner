@@ -361,9 +361,26 @@ def solve_maintenance_block(request: BlockOptimizationRequest) -> BlockOptimizat
     total_window_len = latest - earliest
     asset_gain = f"{(duration / total_window_len) * 100:.1f}% of requested time band" if total_window_len > 0 else "100.0%"
 
+    track_id = getattr(request, "track_id", "KNP-PRYJ-DN-MAIN") or "KNP-PRYJ-DN-MAIN"
+    from backend.services.topology_service import check_infrastructure_coexistence
+    from backend.schemas.topology_models import InfrastructureCoexistenceRequest
+    infra_coexist = check_infrastructure_coexistence(
+        InfrastructureCoexistenceRequest(
+            section_id=request.section_id,
+            target_track_id=track_id,
+            start_min=best["start"],
+            end_min=best["end"],
+            requires_ohe_power_block=True,
+        )
+    )
+
     return BlockOptimizationResponse(
         block_id=request.block_id,
         section_id=request.section_id,
+        track_id=track_id,
+        clearance_state="AI_RECOMMENDED",
+        affected_tracks=infra_coexist.affected_tracks,
+        coexistence_safe=infra_coexist.safe_to_coexist,
         status="OPTIMAL_SCHEDULED",
         allocated_start_min=best["start"],
         allocated_end_min=best["end"],

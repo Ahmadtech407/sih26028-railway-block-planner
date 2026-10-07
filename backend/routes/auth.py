@@ -39,12 +39,22 @@ bearer_scheme = HTTPBearer(auto_error=False)
 # Configuration
 # ---------------------------------------------------------
 
-_env_secret = os.getenv("RAILTRACK_JWT_SECRET")
-if not _env_secret or _env_secret == "change-this-in-production":
-    # Generate high-entropy 256-bit secret to prevent token forgery
-    JWT_SECRET = secrets.token_hex(32)
-else:
+_is_prod = (
+    os.getenv("ENVIRONMENT", "").lower() == "production"
+    or os.getenv("RENDER", "").lower() in ("true", "1")
+)
+_env_secret = os.getenv("RAILTRACK_JWT_SECRET") or os.getenv("JWT_SECRET_KEY")
+
+if _is_prod:
+    if not _env_secret or _env_secret in ("change-this-in-production", "replace_me"):
+        raise RuntimeError(
+            "CRITICAL PRODUCTION SECURITY ERROR: RAILTRACK_JWT_SECRET or JWT_SECRET_KEY "
+            "must be explicitly set in production environment to prevent session invalidation."
+        )
     JWT_SECRET = _env_secret
+else:
+    # Deterministic development secret — avoids token forgery & survives restart across workers
+    JWT_SECRET = _env_secret or "railtrack-dev-insecure-persistent-secret-key-32bytes" 
 
 JWT_TTL_SECONDS = 60 * 60 * 24 * 7
 # 7 days
@@ -134,8 +144,8 @@ def b64url(data: bytes) -> str:
     )
 
 
-def create_token(user_id: int) -> str:
-    """Create an access token for a passenger."""
+def create_token(user_id: int, role: str = "VIEWER") -> str:
+    """Create an access token for a user with role claim."""
 
     header = b64url(
         json.dumps(
@@ -151,6 +161,7 @@ def create_token(user_id: int) -> str:
         json.dumps(
             {
                 "sub": str(user_id),
+                "role": role,
                 "exp": int(time.time())
                 + JWT_TTL_SECONDS,
             },
@@ -224,6 +235,36 @@ def decode_token(token: str) -> int:
         )
 
 
+def decode_token_claims(token: str) -> dict:
+    """Validate an access token and return all claims including role."""
+    try:
+        header, payload, signature = token.split(".", 2)
+        expected = b64url(
+            hmac.new(
+                JWT_SECRET.encode(),
+                f"{header}.{payload}".encode(),
+                hashlib.sha256,
+            ).digest()
+        )
+        if not hmac.compare_digest(signature, expected):
+            raise ValueError("invalid signature")
+        claims = json.loads(
+            base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4))
+        )
+        if int(claims["exp"]) < int(time.time()):
+            raise ValueError("expired token")
+        return {
+            "user_id": int(claims["sub"]),
+            "role": claims.get("role", "VIEWER"),
+            "exp": claims["exp"],
+        }
+    except Exception:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired access token",
+        )
+
+
 # ---------------------------------------------------------
 # Request models
 # ---------------------------------------------------------
@@ -243,6 +284,11 @@ class SignupRequest(BaseModel):
     password: str = Field(
         min_length=8,
         max_length=128,
+    )
+
+    role: Optional[str] = Field(
+        "VIEWER",
+        description="Role: VIEWER, SECTION_CONTROLLER, OPERATIONS, ENGINEERING_PWAY, TRACTION_OHE, ADMIN",
     )
 
 
@@ -293,11 +339,13 @@ async def signup(
             request.password
         )
 
+        role = (request.role or "VIEWER").upper()
         user_id = create_user(
             name=name,
             identifier=identifier,
             password_hash=password_hash,
             created_at=int(time.time()),
+            role=role,
         )
 
     except Exception as exc:
@@ -323,7 +371,7 @@ async def signup(
 
     return {
         "message": "Account created successfully",
-        "access_token": create_token(user_id),
+        "access_token": create_token(user_id, role=role),
         "token_type": "bearer",
         "user": {
             "id": user_id,
@@ -380,7 +428,8 @@ async def login(
     return {
         "message": "Login successful",
         "access_token": create_token(
-            row["id"]
+            row["id"],
+            role=row.get("role", "VIEWER"),
         ),
         "token_type": "bearer",
         "user": {
@@ -433,6 +482,7 @@ async def me(
         "id": row["id"],
         "name": row["name"],
         "identifier": row["identifier"],
+        "role": row.get("role", "VIEWER"),
         "created_at": row["created_at"],
         "active_journey": get_user_journey(user_id),
     }

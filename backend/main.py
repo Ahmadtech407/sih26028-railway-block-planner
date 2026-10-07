@@ -24,6 +24,7 @@ from backend.routes.blocks import router as blocks_router
 from backend.routes.ai_agent import router as ai_router
 from backend.routes.intelligence import router as intelligence_router
 from backend.routes.auth import router as auth_router
+from backend.routes.clearance import router as clearance_router
 from backend.routes.tickets import router as tickets_router
 from backend.routes.pnr import router as pnr_router
 from backend.database import init_database
@@ -112,11 +113,34 @@ app = FastAPI(
 # CORS
 # -------------------------------------------------------------------
 
-_cors_env = os.getenv("CORS_ORIGINS", "*").strip()
-if _cors_env == "*":
-    allowed_origins = ["*"]
+_is_prod = (
+    os.getenv("ENVIRONMENT", "").lower() == "production"
+    or os.getenv("RENDER", "").lower() in ("true", "1")
+)
+_cors_env = os.getenv("CORS_ORIGINS", "").strip()
+
+if _is_prod:
+    if _cors_env and _cors_env != "*":
+        allowed_origins = [o.strip() for o in _cors_env.split(",") if o.strip()]
+    else:
+        # Wildcard is strictly forbidden in production; restrict to production domains
+        allowed_origins = [
+            "https://railway-block-planner-ei5s.onrender.com",
+            "https://sih26028-railway-backend.onrender.com",
+            "https://sih26028-railtrack-passenger.onrender.com",
+        ]
 else:
-    allowed_origins = [o.strip() for o in _cors_env.split(",") if o.strip()]
+    if _cors_env and _cors_env != "*":
+        allowed_origins = [o.strip() for o in _cors_env.split(",") if o.strip()]
+    else:
+        allowed_origins = [
+            "http://localhost:8501",
+            "http://127.0.0.1:8501",
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://localhost:8000",
+            "http://127.0.0.1:8000",
+        ]
 
 app.add_middleware(
     CORSMiddleware,
@@ -135,6 +159,56 @@ class ResponseTimeMiddleware(BaseHTTPMiddleware):
         return response
 
 app.add_middleware(ResponseTimeMiddleware)
+import uuid
+
+class RateLimitingMiddleware(BaseHTTPMiddleware):
+    """In-memory sliding-window IP rate limiter for authentication & expensive endpoints."""
+    def __init__(self, app):
+        super().__init__(app)
+        self.ip_requests = {}
+
+    async def dispatch(self, request, call_next):
+        path = request.url.path
+        client_ip = request.client.host if request.client else "unknown"
+        now = time.time()
+
+        limit_map = {
+            "/api/auth/login": (20, 60.0),
+            "/api/auth/signup": (15, 60.0),
+            "/api/optimizer/jobs": (15, 60.0),
+            "/api/optimizer/solve": (15, 60.0),
+        }
+
+        if path in limit_map:
+            max_reqs, window_s = limit_map[path]
+            key = f"{client_ip}:{path}"
+            history = [t for t in self.ip_requests.get(key, []) if now - t < window_s]
+            if len(history) >= max_reqs:
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": "Rate limit exceeded. Too many requests. Please wait before retrying."},
+                    headers={"Retry-After": str(int(window_s))},
+                )
+            history.append(now)
+            self.ip_requests[key] = history
+
+        return await call_next(request)
+
+app.add_middleware(RateLimitingMiddleware)
+
+
+@app.exception_handler(Exception)
+async def sanitized_unhandled_exception_handler(request, exc):
+    incident_id = f"ERR-{uuid.uuid4().hex[:8].upper()}"
+    logger.error("Unhandled exception [Incident %s] on %s: %s", incident_id, request.url.path, exc, exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Internal server error. Safe incident reference logged for administrator inspection.",
+            "incident_id": incident_id,
+        },
+    )
+
 
 
 # -------------------------------------------------------------------
@@ -155,6 +229,7 @@ app.include_router(auth_router, prefix="/api")
 # Ticket Scanner & PNR Verification router
 app.include_router(tickets_router, prefix="/api")
 app.include_router(pnr_router, prefix="/api")
+app.include_router(clearance_router, prefix="/api")
 
 
 # -------------------------------------------------------------------

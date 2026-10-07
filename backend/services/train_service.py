@@ -417,6 +417,11 @@ def predict_train_kinematics(
     # Empirical confidence decay function (modelled on GPS/Odometer precision loss)
     confidence = max(50.0, 98.0 - (seconds_since_update * 0.08))
 
+    # Data truth contract: dead reckoning is CALCULATED, base seed is SIMULATED (never fake LIVE)
+    source_tag = "CALCULATED" if seconds_since_update > 0 else train.get("data_source", "SIMULATED")
+    if source_tag == "LIVE_GPS" and seconds_since_update > 0:
+        source_tag = "CALCULATED"
+
     return TrainPredictionResponse(
         train_number=train_number,
         original_position_km=round(orig_pos, 2),
@@ -424,7 +429,7 @@ def predict_train_kinematics(
         speed_kmph=speed,
         direction=str(direction),
         confidence_pct=round(confidence, 1),
-        source="PREDICTED" if seconds_since_update > 0 else "LIVE",
+        source=source_tag,
     )
 
 

@@ -22,6 +22,12 @@ services:
         value: RAPIDAPI_IRCTC
       - key: RAPIDAPI_HOST
         value: irctc1.p.rapidapi.com
+      - key: ENVIRONMENT
+        value: production
+      - key: RAILTRACK_JWT_SECRET
+        value: "railtrack-prod-auth-secret-key-sih26028-v1"
+      - key: CORS_ORIGINS
+        value: "https://railway-block-planner-ei5s.onrender.com,https://sih26028-railway-backend.onrender.com,https://sih26028-railtrack-passenger.onrender.com" 
 
   # -------------------------------------------------------------
   # 2. Streamlit Passenger Portal Frontend (24/7 Cloud Service)

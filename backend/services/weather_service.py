@@ -13,10 +13,13 @@ with a deterministic, calibrated simulated fallback provider.
 
 import os
 import math
+import logging
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, Tuple
 
 import requests
+
+logger = logging.getLogger(__name__)
 from backend.schemas.api_models import SectionWeather, WeatherRiskEnum
 
 # Coordinates mapping for railway divisions & major stations
