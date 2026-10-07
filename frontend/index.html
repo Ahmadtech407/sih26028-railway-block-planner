@@ -266,31 +266,17 @@
           Not live Indian Railways data.
         </div>
         <div class="coach-finder-inputs">
-          <div class="input-field-group" style="flex:1.2;">
-            <label class="input-label">&#x1F686; Train Number</label>
-            <select id="coach-train-selector" class="st-select">
-              <option value="22436">22436 &middot; Vande Bharat Express</option>
-              <option value="12301">12301 &middot; Howrah Rajdhani</option>
-              <option value="12004">12004 &middot; Lucknow Swarna Shatabdi</option>
-              <option value="12424">12424 &middot; Dibrugarh Rajdhani (Formation N/A)</option>
-            </select>
-          </div>
-          <div class="input-field-group" style="flex:0.7;">
-            <label class="input-label">&#x1F683; Coach ID</label>
-            <input type="text" id="coach-id-input" class="st-text-input" placeholder="e.g. B1" value="B1"
-              autocomplete="off" style="text-transform:uppercase;">
-          </div>
-          <div class="input-field-group" style="flex:0.7;">
-            <label class="input-label">&#x1F4BA; Seat / Berth</label>
-            <input type="text" id="coach-seat-input" class="st-text-input" placeholder="e.g. 36A" value="36A"
-              autocomplete="off">
+          <div class="input-field-group" style="flex:2;">
+            <label class="input-label">&#x1F512; Enter 10-Digit PNR</label>
+            <input type="text" id="coach-pnr-input" class="st-text-input" placeholder="Enter 10-digit PNR (e.g. 8429103847 or 1234567890)" maxlength="10" autocomplete="off">
           </div>
           <div style="display:flex; align-items:flex-end; padding-bottom:2px;">
-            <button id="coach-find-btn" class="coach-find-btn">&#x1F50D; Locate Coach</button>
+            <button id="coach-verify-btn" class="coach-find-btn">&#x1F512; Verify PNR</button>
           </div>
         </div>
         <!-- Result panel injected by app.js -->
         <div id="coach-formation-panel" style="display:none; margin-top:20px;"></div>
+
       </section>
 
     </main>

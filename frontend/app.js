@@ -1424,29 +1424,188 @@ function renderCoachFormation(trainNumber, coachId, seatNumber) {
 }
 
 // -----------------------------------------------------------------------------
-// 7. COACH FINDER EVENT LISTENER
+// 7. SECURE PNR VERIFICATION & COACH FINDER
 // -----------------------------------------------------------------------------
 
 document.addEventListener("DOMContentLoaded", () => {
-  // (existing DOMContentLoaded listeners are declared above — attach coach-find-btn here)
-  const coachFindBtn = document.getElementById("coach-find-btn");
-  if (coachFindBtn) {
-    coachFindBtn.addEventListener("click", () => {
-      const trainNumber = document.getElementById("coach-train-selector").value.trim();
-      const coachId = document.getElementById("coach-id-input").value.trim().toUpperCase();
-      const seatNumber = document.getElementById("coach-seat-input").value.trim();
+  const verifyBtn = document.getElementById("coach-verify-btn");
+  const panel = document.getElementById("coach-formation-panel");
 
-      if (!coachId) {
-        document.getElementById("coach-formation-panel").style.display = "block";
-        document.getElementById("coach-formation-panel").innerHTML = `
-          <div class="coach-notfound-notice">
-            <div class="notice-title">Please enter a Coach ID</div>
-            <div class="notice-sub">Enter your coach ID from your ticket (e.g. B1, S2, A1, C3).</div>
+  if (verifyBtn && panel) {
+    verifyBtn.addEventListener("click", async () => {
+      const pnrInput = document.getElementById("coach-pnr-input");
+      const pnr = (pnrInput ? pnrInput.value : "").trim();
+
+      panel.style.display = "block";
+
+      if (!/^\d{10}$/.test(pnr)) {
+        panel.innerHTML = `
+          <div class="coach-notfound-notice" style="border-left:4px solid #f43f5e; background:rgba(244,63,94,0.08);">
+            <div class="notice-title" style="color:#f43f5e;">Invalid PNR Format</div>
+            <div class="notice-sub">Please enter a valid 10-digit PNR.</div>
           </div>`;
         return;
       }
 
-      renderCoachFormation(trainNumber, coachId, seatNumber);
+      panel.innerHTML = `
+        <div style="padding:20px; text-align:center; color:#94a3b8; font-size:0.85rem;">
+          <div style="font-size:1.4rem; margin-bottom:8px;">⏳</div>
+          Verifying PNR with railway passenger manifest...
+        </div>`;
+
+      try {
+        const vResp = await fetch("/api/pnr/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pnr: pnr })
+        });
+
+        if (vResp.status === 400) {
+          panel.innerHTML = `
+            <div class="coach-notfound-notice" style="border-left:4px solid #f43f5e; background:rgba(244,63,94,0.08);">
+              <div class="notice-title" style="color:#f43f5e;">Invalid PNR</div>
+              <div class="notice-sub">Please enter a valid 10-digit PNR.</div>
+            </div>`;
+          return;
+        }
+
+        if (vResp.status === 404) {
+          panel.innerHTML = `
+            <div class="coach-notfound-notice" style="border-left:4px solid #f43f5e; background:rgba(244,63,94,0.08);">
+              <div class="notice-title" style="color:#f43f5e;">PNR Not Found</div>
+              <div class="notice-sub">PNR could not be verified. Please check the 10-digit number and try again.</div>
+            </div>`;
+          return;
+        }
+
+        if (!vResp.ok) {
+          panel.innerHTML = `
+            <div class="coach-notfound-notice" style="border-left:4px solid #f59e0b; background:rgba(245,158,11,0.08);">
+              <div class="notice-title" style="color:#f59e0b;">Service Notice</div>
+              <div class="notice-sub">Live PNR verification is currently unavailable.</div>
+            </div>`;
+          return;
+        }
+
+        const vData = await vResp.json();
+        const token = vData.session_token;
+        const j = vData.journey || {};
+
+        // Query server-side coach position using session token exclusively
+        const posResp = await fetch("/api/pnr/coach-position", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_token: token })
+        });
+
+        const posData = await posResp.json();
+
+        // Render verified passenger card
+        let htmlContent = `
+          <div style="background:linear-gradient(135deg, rgba(16,185,129,0.14) 0%, rgba(6,182,212,0.08) 100%); border:1.5px solid #10b981; border-radius:12px; padding:14px 18px; margin-bottom:14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px;">
+              <span style="color:#34d399; font-weight:800; font-size:0.95rem;">&#x2713; PNR Verified</span>
+              <span style="color:#94a3b8; font-size:0.75rem; font-family:monospace;">PNR: <b>${escapeHtml(pnr)}</b></span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; font-size:0.82rem;">
+              <div><span style="color:#94a3b8;">Train:</span> <b style="color:#ffffff;">${escapeHtml(j.train_number)} &middot; ${escapeHtml(j.train_name)}</b></div>
+              <div><span style="color:#94a3b8;">Date:</span> <b style="color:#ffffff;">${escapeHtml(j.travel_date)}</b></div>
+              <div><span style="color:#94a3b8;">From:</span> <b style="color:#ffffff;">${escapeHtml(j.from_station)}</b></div>
+              <div><span style="color:#94a3b8;">To:</span> <b style="color:#ffffff;">${escapeHtml(j.to_station)}</b></div>
+              <div><span style="color:#94a3b8;">Coach:</span> <b style="color:#38bdf8; font-size:1.0rem;">${escapeHtml(j.coach)}</b></div>
+              <div><span style="color:#94a3b8;">Seat / Berth:</span> <b style="color:#38bdf8; font-size:1.0rem;">${escapeHtml(j.seat_number)} (${escapeHtml(j.berth_type || '')})</b></div>
+              <div><span style="color:#94a3b8;">Class:</span> <b style="color:#ffffff;">${escapeHtml(j.class_name || j.class_code)}</b></div>
+            </div>
+          </div>`;
+
+        if (posData.status === "UNAVAILABLE") {
+          htmlContent += `
+            <div class="coach-unavailable-notice">
+              <div class="notice-icon">&#x26A0;&#xFE0F;</div>
+              <div class="notice-title">Coach Formation Data Unavailable</div>
+              <div class="notice-sub">
+                Passenger verified successfully, but verified coach formation is currently unavailable for Train <b>${escapeHtml(j.train_number)}</b>.<br>
+                Position is not shown to preserve accuracy.
+              </div>
+            </div>`;
+        } else if (posData.status === "COACH_UNAVAILABLE") {
+          htmlContent += `
+            <div class="coach-notfound-notice">
+              <div class="notice-title">Coach Not Found in Train Rake</div>
+              <div class="notice-sub">Journey verified, but coach information is unavailable in train formation.</div>
+            </div>`;
+        } else {
+          // Render the formation with coach highlight
+          const coaches = posData.coaches || [];
+          let trainStripHtml = "";
+          coaches.forEach((c, idx) => {
+            const isHighlight = (c.coachId.toUpperCase() === j.coach.toUpperCase());
+            const isLoco = (c.type === "LOCOMOTIVE");
+            const highlightClass = isHighlight ? "coach-box-highlight" : (isLoco ? "coach-box-loco" : "coach-box-normal");
+            const youPointer = isHighlight ? '<div class="coach-you-pointer">YOU &#x25BC;</div>' : '';
+            trainStripHtml += `
+              <div class="coach-unit">
+                ${youPointer}
+                <div class="coach-box ${highlightClass}">${escapeHtml(c.displayLabel || c.coachId)}</div>
+                <div class="coach-class-lbl">${escapeHtml(c.class || (isLoco ? "Loco" : c.type.slice(0, 2)))}</div>
+              </div>`;
+          });
+
+          htmlContent += `
+            <div class="coach-result-container">
+              <div class="coach-result-topbar">
+                <div class="coach-result-title">&#x1F683; Verified Train Formation (${posData.total_coaches} Coaches)</div>
+                <div class="coach-status-tag" style="background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.4); padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:700;">
+                  Formation: ${escapeHtml(posData.provenance || 'VERIFIED_STATIC')}
+                </div>
+              </div>
+              <div class="coach-direction-legend">
+                <span>&#x2190; Engine / Front (Locomotive)</span>
+                <span>Rear / Guard &#x2192;</span>
+              </div>
+              <div class="coach-train-strip">${trainStripHtml}</div>
+              <div class="coach-stat-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:10px; margin-top:14px; background:rgba(15,23,42,0.8); padding:10px 14px; border-radius:10px;">
+                <div><div style="font-size:0.68rem; color:#94a3b8; text-transform:uppercase;">Coach</div><div style="font-size:1.0rem; font-weight:800; color:#22d3ee;">${escapeHtml(j.coach)}</div></div>
+                <div><div style="font-size:0.68rem; color:#94a3b8; text-transform:uppercase;">Position</div><div style="font-size:1.0rem; font-weight:800; color:#f8fafc;">${posData.position} of ${posData.total_coaches}</div></div>
+                <div><div style="font-size:0.68rem; color:#94a3b8; text-transform:uppercase;">Section</div><div style="font-size:0.95rem; font-weight:800; color:#fbbf24;">${escapeHtml(posData.section)}</div></div>
+                <div><div style="font-size:0.68rem; color:#94a3b8; text-transform:uppercase;">Before / After</div><div style="font-size:0.95rem; font-weight:750; color:#f8fafc;">${posData.coaches_before} / ${posData.coaches_after}</div></div>
+              </div>
+            </div>`;
+        }
+
+        // Add Session Clearance Button
+        htmlContent += `
+          <div style="margin-top:12px; text-align:right;">
+            <button id="coach-session-clear-btn" style="background:rgba(244,63,94,0.15); border:1px solid #f43f5e; color:#fda4af; padding:6px 14px; border-radius:8px; cursor:pointer; font-weight:700; font-size:0.8rem;">
+              &#x1F504; Clear / Verify Another PNR
+            </button>
+          </div>`;
+
+        panel.innerHTML = htmlContent;
+
+        const clearBtn = document.getElementById("coach-session-clear-btn");
+        if (clearBtn) {
+          clearBtn.addEventListener("click", async () => {
+            try {
+              await fetch("/api/pnr/logout", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ session_token: token })
+              });
+            } catch (e) {}
+            panel.innerHTML = "";
+            panel.style.display = "none";
+            if (pnrInput) pnrInput.value = "";
+          });
+        }
+      } catch (err) {
+        panel.innerHTML = `
+          <div class="coach-notfound-notice" style="border-left:4px solid #f43f5e; background:rgba(244,63,94,0.08);">
+            <div class="notice-title" style="color:#f43f5e;">Verification Error</div>
+            <div class="notice-sub">An error occurred while connecting to verification services. Please try again.</div>
+          </div>`;
+      }
     });
   }
 });
+

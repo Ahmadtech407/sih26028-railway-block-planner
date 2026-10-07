@@ -309,6 +309,8 @@ async def get_coach_formation(train_number: str):
             "12424": "12423",
             "12003": "12004",
             "12004": "12003",
+            "12801": "12802",
+            "12802": "12801",
         }
         alt_key = pairs.get(train_number)
         if alt_key and alt_key in formations:

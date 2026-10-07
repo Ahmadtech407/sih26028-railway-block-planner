@@ -96,6 +96,24 @@ def _init_sqlite_tables() -> None:
                     created_at INTEGER NOT NULL
                 );
             """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS pnr_sessions (
+                    token TEXT PRIMARY KEY,
+                    pnr TEXT NOT NULL,
+                    train_number TEXT NOT NULL,
+                    train_name TEXT NOT NULL,
+                    travel_date TEXT,
+                    from_station TEXT,
+                    to_station TEXT,
+                    coach TEXT NOT NULL,
+                    seat_number TEXT NOT NULL,
+                    berth_type TEXT,
+                    class_code TEXT,
+                    class_name TEXT,
+                    created_at TEXT NOT NULL,
+                    expires_at TEXT NOT NULL
+                );
+            """)
             conn.commit()
             _seed_demo_pnr_tickets(conn)
     except Exception as exc:
@@ -639,6 +657,41 @@ def _seed_demo_pnr_tickets(conn: sqlite3.Connection) -> None:
                 "match_verified": True,
                 "security_hash": "SHA256-IRCTC-9812401823",
             },
+            "1234567890": {
+                "pnr": "1234567890",
+                "ticket_id": "IRCTC-12802-123456",
+                "passenger": {
+                    "name": "Rajesh Kumar",
+                    "age": 32,
+                    "gender": "Male",
+                    "berth_preference": "Window (W)",
+                },
+                "journey": {
+                    "train_number": "12802",
+                    "train_name": "Purushottam Express",
+                    "from_station": "New Delhi (NDLS)",
+                    "to_station": "Puri (PURI)",
+                    "departure_time": "10:40 PM",
+                    "arrival_time": "05:25 AM (+2 Days)",
+                    "travel_date": "05 Sep 2026",
+                    "class_code": "2S",
+                    "class_name": "Second Sitting (GS)",
+                    "quota": "General (GN)",
+                },
+                "booking": {
+                    "status": "CNF",
+                    "status_detail": "Confirmed / Allotted",
+                    "coach": "GS1",
+                    "seat_number": "36",
+                    "berth_type": "Window",
+                    "fare": 345.00,
+                    "chart_status": "CHART PREPARED",
+                    "platform_expected": "PF 7",
+                },
+                "status": "SUCCESS",
+                "match_verified": True,
+                "security_hash": "SHA256-IRCTC-1234567890",
+            },
         }
 
         now_ts = int(time.time())
@@ -958,4 +1011,77 @@ def get_approval_history(block_id: str) -> List[Dict[str, Any]]:
                 d["previous_state"] = None
             results.append(d)
         return results
+
+
+def create_pnr_session(
+    token: str,
+    pnr: str,
+    journey_data: Dict[str, Any],
+    expires_at_iso: str,
+) -> None:
+    """Store short-lived verified PNR session in persistent database."""
+    _init_sqlite_tables()
+    now_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    with _get_sqlite_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO pnr_sessions (
+                token, pnr, train_number, train_name, travel_date,
+                from_station, to_station, coach, seat_number, berth_type,
+                class_code, class_name, created_at, expires_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(token) DO UPDATE SET
+                pnr=excluded.pnr,
+                train_number=excluded.train_number,
+                train_name=excluded.train_name,
+                coach=excluded.coach,
+                seat_number=excluded.seat_number,
+                expires_at=excluded.expires_at
+        """, (
+            token,
+            pnr,
+            str(journey_data.get("train_number", "")),
+            str(journey_data.get("train_name", "")),
+            str(journey_data.get("travel_date", "")),
+            str(journey_data.get("from_station", "")),
+            str(journey_data.get("to_station", "")),
+            str(journey_data.get("coach", "")),
+            str(journey_data.get("seat_number", "")),
+            str(journey_data.get("berth_type", "")),
+            str(journey_data.get("class_code", "")),
+            str(journey_data.get("class_name", "")),
+            now_iso,
+            expires_at_iso,
+        ))
+        conn.commit()
+
+
+def get_pnr_session(token: str) -> Optional[Dict[str, Any]]:
+    """Retrieve verified PNR session by secure token if not expired."""
+    _init_sqlite_tables()
+    now_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    with _get_sqlite_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT token, pnr, train_number, train_name, travel_date,
+                   from_station, to_station, coach, seat_number, berth_type,
+                   class_code, class_name, created_at, expires_at
+            FROM pnr_sessions
+            WHERE token = ? AND expires_at > ?
+            LIMIT 1
+        """, (token, now_iso))
+        row = cur.fetchone()
+        if row:
+            return dict(row)
+    return None
+
+
+def delete_pnr_session(token: str) -> bool:
+    """Invalidate and remove a verified PNR session."""
+    _init_sqlite_tables()
+    with _get_sqlite_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM pnr_sessions WHERE token = ?", (token,))
+        conn.commit()
+        return cur.rowcount > 0
 

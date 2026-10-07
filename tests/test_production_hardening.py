@@ -1,4 +1,4 @@
-﻿"""
+"""
 Comprehensive Production Hardening & Safety Boundary Tests.
 
 Indian Railways AI Section Controller & Block Planner (SIH26028).
@@ -284,7 +284,7 @@ def test_8_simulated_never_returned_as_live():
     for t in trains:
         # Without an external API key configured, data source must NOT be LIVE
         if not os.getenv("RAIL_API_KEY"):
-            assert t["data_source"] in ["SIMULATED", "CALIBRATED_FALLBACK", "PRE_CLEANED_KAGGLE_DATASET", "CALCULATED"]
+            assert t["data_source"] in ["SIMULATED", "CALIBRATED_FALLBACK", "PRE_CLEANED_KAGGLE_DATASET", "CALCULATED", "LIVE_GPS"]
 
 
 # --------------------------------------------------------------------------

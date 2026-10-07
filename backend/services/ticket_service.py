@@ -141,12 +141,44 @@ KNOWN_TICKETS: Dict[str, Dict[str, Any]] = {
             "platform_expected": "PF 7",
         },
     },
+    "1234567890": {
+        "pnr": "1234567890",
+        "ticket_id": "IRCTC-12802-123456",
+        "passenger": {
+            "name": "Rajesh Kumar",
+            "age": 32,
+            "gender": "Male",
+            "berth_preference": "Window (W)",
+        },
+        "journey": {
+            "train_number": "12802",
+            "train_name": "Purushottam Express",
+            "from_station": "New Delhi (NDLS)",
+            "to_station": "Puri (PURI)",
+            "departure_time": "10:40 PM",
+            "arrival_time": "05:25 AM (+2 Days)",
+            "travel_date": "05 Sep 2026",
+            "class_code": "2S",
+            "class_name": "Second Sitting (GS)",
+            "quota": "General (GN)",
+        },
+        "booking": {
+            "status": "CNF",
+            "status_detail": "Confirmed / Allotted",
+            "coach": "GS1",
+            "seat_number": "36",
+            "berth_type": "Window",
+            "fare": 345.00,
+            "chart_status": "CHART PREPARED",
+            "platform_expected": "PF 7",
+        },
+    },
 }
 
 
 def sanitize_payload(raw: str) -> str:
     """Strip extraneous headers, prefixes, or whitespace from scanned strings."""
-    raw = raw.strip()
+    raw = str(raw).strip()
     # Support IRCTC JSON QR code payload: {"pnr":"8429103847", ...}
     if raw.startswith("{") and raw.endswith("}"):
         try:
@@ -214,9 +246,9 @@ def verify_ticket(payload: str) -> Dict[str, Any]:
         data["security_hash"] = f"SHA256-IRCTC-{hash(pnr_key) & 0xFFFFFFF:07X}"
         return data
 
-    # 3. Check by train number match (e.g. user scanned barcode of 22436 or 12302)
+    # 3. Check by ticket_id exact match (e.g. from scanned barcode)
     for record in KNOWN_TICKETS.values():
-        if pnr_key == record["journey"]["train_number"]:
+        if pnr_key == record.get("ticket_id"):
             data = record.copy()
             data["status"] = "SUCCESS"
             data["success"] = True
@@ -234,3 +266,4 @@ def verify_ticket(payload: str) -> Dict[str, Any]:
         "message": "PNR not found. Please check the PNR and try again.",
         "verified_at": datetime.now(timezone.utc).isoformat(),
     }
+

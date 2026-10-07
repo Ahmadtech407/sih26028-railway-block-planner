@@ -1760,6 +1760,219 @@
           "note": "End-on-Generation Power Car (Rear)"
         }
       ]
+    },
+    "12802": {
+      "trainNumber": "12802",
+      "trainName": "Purushottam Express (New Delhi – Puri)",
+      "rakeType": "LHB 22-Car Superfast Express Rake",
+      "formationVersion": "LHB-22-IR-2026",
+      "lastUpdated": "2026-10-05",
+      "effectiveFrom": "2026-01-01",
+      "effectiveUntil": null,
+      "source": "CRIS_NTES_OFFICIAL",
+      "verificationStatus": "VERIFIED",
+      "totalCoaches": 22,
+      "locomotivePosition": "FRONT",
+      "coaches": [
+        {
+          "sequence": 1,
+          "coachId": "WAP7",
+          "type": "LOCOMOTIVE",
+          "displayLabel": "WAP7",
+          "class": null,
+          "berths": null,
+          "note": "WAP-7 Electric Locomotive (Head End)"
+        },
+        {
+          "sequence": 2,
+          "coachId": "EOG1",
+          "type": "POWER_CAR",
+          "displayLabel": "EOG",
+          "class": null,
+          "berths": null,
+          "note": "End-on-Generation Power Car (Front)"
+        },
+        {
+          "sequence": 3,
+          "coachId": "GS1",
+          "type": "GENERAL",
+          "displayLabel": "GS1",
+          "class": "GEN",
+          "berths": 100,
+          "note": "General Second Sitting (Front)"
+        },
+        {
+          "sequence": 4,
+          "coachId": "GS2",
+          "type": "GENERAL",
+          "displayLabel": "GS",
+          "class": "GEN",
+          "berths": 100,
+          "note": "General Second Sitting"
+        },
+        {
+          "sequence": 5,
+          "coachId": "S1",
+          "type": "SLEEPER",
+          "displayLabel": "S1",
+          "class": "SL",
+          "berths": 80,
+          "note": "Sleeper Class"
+        },
+        {
+          "sequence": 6,
+          "coachId": "S2",
+          "type": "SLEEPER",
+          "displayLabel": "S2",
+          "class": "SL",
+          "berths": 80,
+          "note": "Sleeper Class"
+        },
+        {
+          "sequence": 7,
+          "coachId": "S3",
+          "type": "SLEEPER",
+          "displayLabel": "S3",
+          "class": "SL",
+          "berths": 80,
+          "note": "Sleeper Class"
+        },
+        {
+          "sequence": 8,
+          "coachId": "S4",
+          "type": "SLEEPER",
+          "displayLabel": "S4",
+          "class": "SL",
+          "berths": 80,
+          "note": "Sleeper Class"
+        },
+        {
+          "sequence": 9,
+          "coachId": "S5",
+          "type": "SLEEPER",
+          "displayLabel": "S5",
+          "class": "SL",
+          "berths": 80,
+          "note": "Sleeper Class"
+        },
+        {
+          "sequence": 10,
+          "coachId": "S6",
+          "type": "SLEEPER",
+          "displayLabel": "S6",
+          "class": "SL",
+          "berths": 80,
+          "note": "Sleeper Class"
+        },
+        {
+          "sequence": 11,
+          "coachId": "PC",
+          "type": "PANTRY_CAR",
+          "displayLabel": "PC",
+          "class": null,
+          "berths": null,
+          "note": "Pantry Car / Catering"
+        },
+        {
+          "sequence": 12,
+          "coachId": "B1",
+          "type": "AC_3_TIER",
+          "displayLabel": "B1",
+          "class": "3A",
+          "berths": 72,
+          "note": "AC 3-Tier Sleeper"
+        },
+        {
+          "sequence": 13,
+          "coachId": "B2",
+          "type": "AC_3_TIER",
+          "displayLabel": "B2",
+          "class": "3A",
+          "berths": 72,
+          "note": "AC 3-Tier Sleeper"
+        },
+        {
+          "sequence": 14,
+          "coachId": "B3",
+          "type": "AC_3_TIER",
+          "displayLabel": "B3",
+          "class": "3A",
+          "berths": 72,
+          "note": "AC 3-Tier Sleeper"
+        },
+        {
+          "sequence": 15,
+          "coachId": "B4",
+          "type": "AC_3_TIER",
+          "displayLabel": "B4",
+          "class": "3A",
+          "berths": 72,
+          "note": "AC 3-Tier Sleeper"
+        },
+        {
+          "sequence": 16,
+          "coachId": "B5",
+          "type": "AC_3_TIER",
+          "displayLabel": "B5",
+          "class": "3A",
+          "berths": 72,
+          "note": "AC 3-Tier Sleeper"
+        },
+        {
+          "sequence": 17,
+          "coachId": "B6",
+          "type": "AC_3_TIER",
+          "displayLabel": "B6",
+          "class": "3A",
+          "berths": 72,
+          "note": "AC 3-Tier Sleeper"
+        },
+        {
+          "sequence": 18,
+          "coachId": "A1",
+          "type": "AC_2_TIER",
+          "displayLabel": "A1",
+          "class": "2A",
+          "berths": 54,
+          "note": "AC 2-Tier Sleeper"
+        },
+        {
+          "sequence": 19,
+          "coachId": "A2",
+          "type": "AC_2_TIER",
+          "displayLabel": "A2",
+          "class": "2A",
+          "berths": 54,
+          "note": "AC 2-Tier Sleeper"
+        },
+        {
+          "sequence": 20,
+          "coachId": "H1",
+          "type": "AC_FIRST",
+          "displayLabel": "H1",
+          "class": "1A",
+          "berths": 24,
+          "note": "AC First Class (Coupe/Cabin)"
+        },
+        {
+          "sequence": 21,
+          "coachId": "GS3",
+          "type": "GENERAL",
+          "displayLabel": "GS",
+          "class": "GEN",
+          "berths": 100,
+          "note": "General Second Sitting (Rear)"
+        },
+        {
+          "sequence": 22,
+          "coachId": "SLRD",
+          "type": "GUARD_VAN",
+          "displayLabel": "SLRD",
+          "class": null,
+          "berths": null,
+          "note": "Second Luggage, Rake & Disabled Coach (Rear)"
+        }
+      ]
     }
   }
-}
+}
