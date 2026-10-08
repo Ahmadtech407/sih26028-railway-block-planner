@@ -704,7 +704,7 @@ def parse_journey_intent(
     # "between [ORIGIN] and [DESTINATION]"
     if not (resolved_origin_code and resolved_dest_code):
         pair_patterns = [
-            (r"reach\s+([a-zA-Z\s]+?)\s+from\s+([a-zA-Z\s]+?)(?:\s+(?:before|by|after|at|today|tomorrow|and)|\.|$)", "dest_orig"),
+            (r"reach\s+([a-zA-Z\s]+?)(?:\s+(?:before|by|after|at|until)\s+[^f\.\,]+)?\s+from\s+([a-zA-Z\s]+?)(?:\s+(?:before|by|after|at|today|tomorrow|and)|\.|$)", "dest_orig"),
             (r"from\s+([a-zA-Z\s]+?)\s+to\s+([a-zA-Z\s]+?)(?:\s+(?:before|by|after|at|today|tomorrow|and)|\.|$)", "orig_dest"),
             (r"to\s+([a-zA-Z\s]+?)\s+from\s+([a-zA-Z\s]+?)(?:\s+(?:before|by|after|at|today|tomorrow|and)|\.|$)", "dest_orig"),
             (r"between\s+([a-zA-Z\s]+?)\s+and\s+([a-zA-Z\s]+?)(?:\s+(?:before|by|after|at|today|tomorrow|and)|\.|$)", "orig_dest"),
@@ -741,24 +741,29 @@ def parse_journey_intent(
         found_stations: List[Tuple[Dict[str, Any], str]] = []
         for n in (3, 2, 1):
             for i in range(len(clean_words) - n + 1):
-                chunk = " ".join(clean_words[i:i + n])
-                if chunk in STOP_WORDS or all(w in STOP_WORDS for w in chunk.split()):
+                chunk_tokens = [w for w in clean_words[i:i + n] if w not in STOP_WORDS]
+                if not chunk_tokens:
                     continue
+                chunk = " ".join(chunk_tokens)
                 st = find_station(chunk)
                 if st and not any(s[0]["code"] == st["code"] for s in found_stations):
                     found_stations.append((st, chunk))
 
         if len(found_stations) >= 2 and not (resolved_origin_code and resolved_dest_code):
             st1, st2 = found_stations[0][0], found_stations[1][0]
-            pos1 = lowered.find(st1["name"].lower()) if st1["name"].lower() in lowered else lowered.find(st1["code"].lower())
-            pos2 = lowered.find(st2["name"].lower()) if st2["name"].lower() in lowered else lowered.find(st2["code"].lower())
-            
-            if "from" in lowered and lowered.find("from") < pos2 and pos2 > pos1:
+            orig_p1 = (f"from {st1['name'].lower()}" in lowered or f"from {found_stations[0][1]}" in lowered)
+            orig_p2 = (f"from {st2['name'].lower()}" in lowered or f"from {found_stations[1][1]}" in lowered)
+            dest_p1 = (f"to {st1['name'].lower()}" in lowered or f"reach {st1['name'].lower()}" in lowered
+                       or f"to {found_stations[0][1]}" in lowered or f"reach {found_stations[0][1]}" in lowered)
+            dest_p2 = (f"to {st2['name'].lower()}" in lowered or f"reach {st2['name'].lower()}" in lowered
+                       or f"to {found_stations[1][1]}" in lowered or f"reach {found_stations[1][1]}" in lowered)
+
+            if orig_p2 or dest_p1:
+                resolved_origin_code, resolved_origin_name = st2["code"], st2["name"]
+                resolved_dest_code, resolved_dest_name = st1["code"], st1["name"]
+            elif orig_p1 or dest_p2:
                 resolved_origin_code, resolved_origin_name = st1["code"], st1["name"]
                 resolved_dest_code, resolved_dest_name = st2["code"], st2["name"]
-            elif "to" in lowered and lowered.find("to") < pos1 and pos1 < pos2:
-                resolved_dest_code, resolved_dest_name = st1["code"], st1["name"]
-                resolved_origin_code, resolved_origin_name = st2["code"], st2["name"]
             else:
                 resolved_origin_code, resolved_origin_name = st1["code"], st1["name"]
                 resolved_dest_code, resolved_dest_name = st2["code"], st2["name"]

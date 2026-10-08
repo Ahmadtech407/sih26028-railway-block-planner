@@ -3178,17 +3178,18 @@ def render_ai_journey_assistant() -> None:
         unsafe_allow_html=True,
     )
 
-    col_input, col_btn = st.columns([4.2, 1.4])
-    with col_input:
-        user_query = st.text_input(
-            "Natural Language Journey Request",
-            value=st.session_state.journey_assistant_query,
-            placeholder="e.g. I need to reach Jammu from Delhi before 8 PM",
-            key="input_ai_journey_query",
-            label_visibility="collapsed",
-        )
-    with col_btn:
-        search_clicked = st.button("🚀 FIND BEST TRAIN", type="primary", use_container_width=True, key="btn_ai_journey_search")
+    with st.form(key="ai_journey_search_form", clear_on_submit=False):
+        col_input, col_btn = st.columns([4.2, 1.4])
+        with col_input:
+            user_query = st.text_input(
+                "Natural Language Journey Request",
+                value=st.session_state.journey_assistant_query,
+                placeholder="e.g. I need to reach Jammu from Delhi before 8 PM",
+                key="input_ai_journey_query",
+                label_visibility="collapsed",
+            )
+        with col_btn:
+            search_clicked = st.form_submit_button("🚀 FIND BEST TRAIN", type="primary", use_container_width=True)
 
     chip_cols = st.columns([1, 1, 1, 1.2])
     with chip_cols[0]:
