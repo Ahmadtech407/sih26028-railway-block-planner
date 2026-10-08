@@ -3146,35 +3146,37 @@ def render_ai_journey_assistant() -> None:
         st.session_state.journey_assistant_query = ""
 
     st.markdown(
-        """
-        <div style="background:linear-gradient(135deg, rgba(15,23,42,0.85) 0%, rgba(30,41,59,0.7) 100%);
-                    border:1px solid rgba(56,189,248,0.25); border-radius:16px; padding:1.2rem 1.4rem;
-                    margin-bottom:1.2rem; box-shadow:0 8px 32px rgba(0,0,0,0.37);">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:8px;">
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <span style="font-size:1.4rem;">🤖</span>
-                    <div>
-                        <div style="font-weight:800; font-size:1.1rem; color:#f8fafc; letter-spacing:-0.01em;">
-                            RailTrack AI Journey Assistant
-                        </div>
-                        <div style="font-size:0.75rem; color:#94a3b8;">
-                            IST Timezone Aware · Deadline Feasibility · Dynamic ML Delays · Anti-Hallucination Verified
+        clean_html(
+            """
+            <div style="background:linear-gradient(135deg, rgba(15,23,42,0.85) 0%, rgba(30,41,59,0.7) 100%);
+                        border:1px solid rgba(56,189,248,0.25); border-radius:16px; padding:1.2rem 1.4rem;
+                        margin-bottom:1.2rem; box-shadow:0 8px 32px rgba(0,0,0,0.37);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:8px;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="font-size:1.4rem;">🤖</span>
+                        <div>
+                            <div style="font-weight:800; font-size:1.1rem; color:#f8fafc; letter-spacing:-0.01em;">
+                                RailTrack AI Journey Assistant
+                            </div>
+                            <div style="font-size:0.75rem; color:#94a3b8;">
+                                IST Timezone Aware · Deadline Feasibility · Dynamic ML Delays · Anti-Hallucination Verified
+                            </div>
                         </div>
                     </div>
+                    <div>
+                        <span style="background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.4);
+                                     color:#fbbf24; font-size:0.68rem; font-weight:700; padding:4px 10px;
+                                     border-radius:999px; letter-spacing:0.04em;">
+                            DEMO / SIMULATED DATA
+                        </span>
+                    </div>
                 </div>
-                <div>
-                    <span style="background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.4);
-                                 color:#fbbf24; font-size:0.68rem; font-weight:700; padding:4px 10px;
-                                 border-radius:999px; letter-spacing:0.04em;">
-                        DEMO / SIMULATED DATA
-                    </span>
+                <div style="font-size:0.83rem; color:#cbd5e1; margin-bottom:12px;">
+                    Plan your journey in plain English (e.g. <em>"I need to reach Jammu from Delhi before 8 PM"</em> or <em>"from Delhi to Chandigarh after 6 AM that reaches before noon"</em>).
                 </div>
             </div>
-            <div style="font-size:0.83rem; color:#cbd5e1; margin-bottom:12px;">
-                Plan your journey in plain English (e.g. <em>"I need to reach Jammu from Delhi before 8 PM"</em> or <em>"from Delhi to Chandigarh after 6 AM that reaches before noon"</em>).
-            </div>
-        </div>
-        """,
+            """
+        ),
         unsafe_allow_html=True,
     )
 
@@ -3323,7 +3325,7 @@ def render_ai_journey_assistant() -> None:
                     </div>
                 </div>
                 """
-                st.markdown(card_html, unsafe_allow_html=True)
+                st.markdown(clean_html(card_html), unsafe_allow_html=True)
 
                 col_trk, _ = st.columns([2.5, 4])
                 with col_trk:
@@ -3335,17 +3337,19 @@ def render_ai_journey_assistant() -> None:
 
             else:
                 st.markdown(
-                    f"""
-                    <div style="background:rgba(239,68,68,0.12); border:1px solid #ef4444; border-radius:12px;
-                                padding:1.1rem 1.3rem; margin-bottom:12px;">
-                        <div style="font-weight:800; font-size:1.05rem; color:#fca5a5;">
-                            ⚠️ Deadline Feasibility Notice
+                    clean_html(
+                        f"""
+                        <div style="background:rgba(239,68,68,0.12); border:1px solid #ef4444; border-radius:12px;
+                                    padding:1.1rem 1.3rem; margin-bottom:12px;">
+                            <div style="font-weight:800; font-size:1.05rem; color:#fca5a5;">
+                                ⚠️ Deadline Feasibility Notice
+                            </div>
+                            <div style="font-size:0.88rem; color:#fecaca; margin-top:4px;">
+                                {html.escape(explanation)}
+                            </div>
                         </div>
-                        <div style="font-size:0.88rem; color:#fecaca; margin-top:4px;">
-                            {html.escape(explanation)}
-                        </div>
-                    </div>
-                    """,
+                        """
+                    ),
                     unsafe_allow_html=True,
                 )
 
@@ -3362,23 +3366,25 @@ def render_ai_journey_assistant() -> None:
                         a_col = alt.get("status_color", "#94a3b8")
 
                         st.markdown(
-                            f"""
-                            <div style="display:flex; justify-content:space-between; align-items:center;
-                                        background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06);
-                                        border-radius:8px; padding:8px 12px; margin-bottom:6px; flex-wrap:wrap; gap:6px;">
-                                <div>
-                                    <strong style="color:#ffffff;">Train {html.escape(str(a_num))} · {html.escape(str(a_name))}</strong>
-                                    <div style="font-size:0.75rem; color:#94a3b8;">
-                                        Dep: {alt.get('departure_display')} ➔ Expected Arr: {a_exp} (+{alt.get('predicted_delay_minutes')}m delay)
+                            clean_html(
+                                f"""
+                                <div style="display:flex; justify-content:space-between; align-items:center;
+                                            background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06);
+                                            border-radius:8px; padding:8px 12px; margin-bottom:6px; flex-wrap:wrap; gap:6px;">
+                                    <div>
+                                        <strong style="color:#ffffff;">Train {html.escape(str(a_num))} · {html.escape(str(a_name))}</strong>
+                                        <div style="font-size:0.75rem; color:#94a3b8;">
+                                            Dep: {alt.get('departure_display')} ➔ Expected Arr: {a_exp} (+{alt.get('predicted_delay_minutes')}m delay)
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <span style="color:{a_col}; font-weight:750; font-size:0.78rem;">
+                                            {a_status} ({a_buf} {'buffer' if a_met else 'late'})
+                                        </span>
                                     </div>
                                 </div>
-                                <div>
-                                    <span style="color:{a_col}; font-weight:750; font-size:0.78rem;">
-                                        {a_status} ({a_buf} {'buffer' if a_met else 'late'})
-                                    </span>
-                                </div>
-                            </div>
-                            """,
+                                """
+                            ),
                             unsafe_allow_html=True,
                         )
 
