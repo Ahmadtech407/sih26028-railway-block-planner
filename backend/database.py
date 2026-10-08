@@ -110,14 +110,20 @@ def _init_sqlite_tables() -> None:
                     berth_type TEXT,
                     class_code TEXT,
                     class_name TEXT,
+                    verification_status TEXT DEFAULT 'DEMO',
                     created_at TEXT NOT NULL,
                     expires_at TEXT NOT NULL
                 );
             """)
+            try:
+                cur.execute("ALTER TABLE pnr_sessions ADD COLUMN verification_status TEXT DEFAULT 'DEMO'")
+            except Exception:
+                pass
             conn.commit()
             _seed_demo_pnr_tickets(conn)
     except Exception as exc:
         logger.warning("SQLite table init warning: %s", exc)
+
 
 
 # ---------------------------------------------------------
@@ -1018,24 +1024,27 @@ def create_pnr_session(
     pnr: str,
     journey_data: Dict[str, Any],
     expires_at_iso: str,
+    verification_status: str = "DEMO",
 ) -> None:
     """Store short-lived verified PNR session in persistent database."""
     _init_sqlite_tables()
     now_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    v_stat = str(verification_status or journey_data.get("verification_status") or "DEMO").upper()
     with _get_sqlite_conn() as conn:
         cur = conn.cursor()
         cur.execute("""
             INSERT INTO pnr_sessions (
                 token, pnr, train_number, train_name, travel_date,
                 from_station, to_station, coach, seat_number, berth_type,
-                class_code, class_name, created_at, expires_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                class_code, class_name, verification_status, created_at, expires_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(token) DO UPDATE SET
                 pnr=excluded.pnr,
                 train_number=excluded.train_number,
                 train_name=excluded.train_name,
                 coach=excluded.coach,
                 seat_number=excluded.seat_number,
+                verification_status=excluded.verification_status,
                 expires_at=excluded.expires_at
         """, (
             token,
@@ -1050,6 +1059,7 @@ def create_pnr_session(
             str(journey_data.get("berth_type", "")),
             str(journey_data.get("class_code", "")),
             str(journey_data.get("class_name", "")),
+            v_stat,
             now_iso,
             expires_at_iso,
         ))
@@ -1065,7 +1075,7 @@ def get_pnr_session(token: str) -> Optional[Dict[str, Any]]:
         cur.execute("""
             SELECT token, pnr, train_number, train_name, travel_date,
                    from_station, to_station, coach, seat_number, berth_type,
-                   class_code, class_name, created_at, expires_at
+                   class_code, class_name, verification_status, created_at, expires_at
             FROM pnr_sessions
             WHERE token = ? AND expires_at > ?
             LIMIT 1
@@ -1074,6 +1084,7 @@ def get_pnr_session(token: str) -> Optional[Dict[str, Any]]:
         if row:
             return dict(row)
     return None
+
 
 
 def delete_pnr_session(token: str) -> bool:

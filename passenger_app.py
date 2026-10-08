@@ -3312,131 +3312,114 @@ def render_train_info(train: Dict[str, Any], section: Dict[str, Any], weather: O
 
     # ── Secure Journey Verification & Coach Locator ──
     # Passenger must verify 10-digit PNR before any passenger-specific coach/seat details or highlighting appear.
-    with st.expander(f"🚆 Find My Coach in Train {train_num}", expanded=True):
-        sess_key = f"pnr_verified_session_{train_num}"
-        verified_session = st.session_state.get(sess_key)
+    # ── Secure Journey Verification & Coach Locator ──
+    # Passenger must verify 10-digit PNR before any passenger-specific coach/seat details or highlighting appear.
+    is_pnr_verified = st.session_state.get("pnr_verified", False)
+    v_journey_data = st.session_state.get("verified_journey", {})
+    verified_pnr_val = st.session_state.get("verified_pnr", "")
 
-        if not verified_session:
+    expander_title = f"🚆 Find My Coach in Train {v_journey_data.get('train_number', train_num)}" if is_pnr_verified else "🚆 Find My Coach"
+    with st.expander(expander_title, expanded=True):
+        if not is_pnr_verified:
             st.markdown(
-                f"""
+                """
                 <div style="background:rgba(15,23,42,0.6); border:1px solid rgba(56,189,248,0.25); border-radius:12px; padding:16px 18px; margin-bottom:14px;">
                     <div style="font-size:0.95rem; font-weight:800; color:#38bdf8; display:flex; align-items:center; gap:8px;">
                         <span>🔐 VERIFY YOUR JOURNEY</span>
                     </div>
                     <div style="font-size:0.82rem; color:#94a3b8; margin-top:4px; line-height:1.5;">
-                        Enter your 10-digit PNR to securely retrieve your journey details and locate your coach in Train {train_num}.
+                        Enter your 10-digit PNR to securely retrieve your journey details and locate your coach.
                     </div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
 
-            col_pnr_in, col_pnr_btn = st.columns([3, 1.3])
-            with col_pnr_in:
-                pnr_input_val = st.text_input(
-                    "Enter your 10-digit PNR",
-                    key=f"pnr_input_field_{train_num}",
-                    max_chars=10,
-                    placeholder="Enter 10-digit PNR (e.g. 8429103847 or 1234567890)",
-                    label_visibility="collapsed",
-                ).strip()
-            with col_pnr_btn:
-                verify_btn = st.button("VERIFY PNR", key=f"btn_pnr_verify_{train_num}", type="primary", use_container_width=True)
+            with st.form(key="find_my_coach_verification_form", clear_on_submit=False):
+                col_pnr_in, col_pnr_btn = st.columns([3, 1.3])
+                with col_pnr_in:
+                    pnr_input_val = st.text_input(
+                        "Enter your 10-digit PNR",
+                        key="find_my_coach_pnr_input_field",
+                        max_chars=10,
+                        placeholder="Enter 10-digit PNR (e.g. 8429103847)",
+                        label_visibility="collapsed",
+                    )
+                with col_pnr_btn:
+                    verify_btn = st.form_submit_button("VERIFY PNR", type="primary", use_container_width=True)
 
             if verify_btn:
-                if not re.fullmatch(r"^\d{10}$", pnr_input_val):
+                clean_pnr = str(pnr_input_val).strip()
+                if not re.fullmatch(r"^\d{10}$", clean_pnr):
                     st.error("Please enter a valid 10-digit PNR.")
                 else:
-                    # Attempt backend verification
+                    # Attempt verification: HTTP first, in-process canonical provider fallback
                     v_res = None
                     try:
                         resp = requests.post(
                             f"{BACKEND_URL}/api/pnr/verify",
-                            json={"pnr": pnr_input_val},
-                            timeout=3.5,
+                            json={"pnr": clean_pnr},
+                            timeout=2.5,
                         )
                         if resp.status_code == 200:
                             v_res = resp.json()
-                        elif resp.status_code == 400:
-                            st.error("Please enter a valid 10-digit PNR.")
-                        elif resp.status_code == 404:
-                            st.error("PNR could not be verified.")
-                        else:
-                            st.error("Live PNR verification is currently unavailable.")
+                        elif resp.status_code in (400, 404) and "application/json" in resp.headers.get("content-type", ""):
+                            v_res = resp.json()
                     except Exception:
-                        # Resilient internal verification fallback if backend service is restarting
-                        from backend.routes.pnr import _MEMORY_SESSIONS
-                        from backend.services.ticket_service import verify_ticket
-                        from backend.database import create_pnr_session
-                        import secrets
-                        loc_res = verify_ticket(pnr_input_val)
-                        if loc_res.get("match_verified"):
-                            tok = secrets.token_hex(32)
-                            exp_dt = datetime.now(timezone.utc) + timedelta(minutes=15)
-                            exp_iso = exp_dt.isoformat()
-                            j_data = {
-                                "train_number": str(loc_res.get("journey", {}).get("train_number", "")),
-                                "train_name": str(loc_res.get("journey", {}).get("train_name", "")),
-                                "travel_date": str(loc_res.get("journey", {}).get("travel_date", "")),
-                                "from_station": str(loc_res.get("journey", {}).get("from_station", "")),
-                                "to_station": str(loc_res.get("journey", {}).get("to_station", "")),
-                                "coach": str(loc_res.get("booking", {}).get("coach", "")),
-                                "seat_number": str(loc_res.get("booking", {}).get("seat_number", "")),
-                                "berth_type": str(loc_res.get("booking", {}).get("berth_type", "")),
-                                "class_code": str(loc_res.get("journey", {}).get("class_code", "")),
-                                "class_name": str(loc_res.get("journey", {}).get("class_name", "")),
-                                "status": str(loc_res.get("booking", {}).get("status", "CNF")),
-                            }
-                            create_pnr_session(tok, pnr_input_val, j_data, exp_iso)
-                            cached = j_data.copy()
-                            cached.update({"token": tok, "pnr": pnr_input_val, "expires_at": exp_iso, "expires_at_dt": exp_dt})
-                            _MEMORY_SESSIONS[tok] = cached
-                            v_res = {"success": True, "session_token": tok, "pnr": pnr_input_val, "journey": j_data}
-                        else:
-                            st.error("PNR could not be verified.")
+                        pass
 
-                    if v_res and v_res.get("success"):
-                        p_journey = v_res.get("journey", {})
-                        p_train_num = str(p_journey.get("train_number", "")).strip()
-                        if p_train_num and p_train_num != str(train_num).strip():
-                            st.warning(
-                                f"PNR {v_res.get('pnr')} verified for Train {p_train_num} ({p_journey.get('train_name', '')}). "
-                                f"Please select Train {p_train_num} to view your coach position."
-                            )
-                            st.session_state[f"pnr_verified_session_{p_train_num}"] = v_res
-                            if st.button(f"🚆 Go to Train {p_train_num}", key=f"switch_pnr_{train_num}_{p_train_num}"):
-                                st.session_state.train_search_query = p_train_num
-                                st.rerun()
-                        else:
-                            st.session_state[sess_key] = v_res
-                            st.success("✓ PNR Verified")
-                            st.rerun()
+                    # Resilient in-process execution using canonical provider
+                    if not v_res or v_res.get("status_code", 0) not in (200, 400, 404):
+                        from backend.routes.pnr import execute_pnr_verification
+                        v_res = execute_pnr_verification(clean_pnr)
+
+                    if not v_res or not v_res.get("verified"):
+                        err_msg = v_res.get("message") if v_res else "PNR could not be verified."
+                        st.error(err_msg)
+                    else:
+                        # Store in persistent Streamlit session state
+                        st.session_state["pnr_verified"] = True
+                        st.session_state["pnr_session_token"] = v_res.get("session_token", "")
+                        st.session_state["verified_journey"] = v_res
+                        st.session_state["verified_pnr"] = v_res.get("pnr", clean_pnr)
+                        st.rerun()
 
         else:
             # Passenger is verified! Retrieve journey details
-            v_journey = verified_session.get("journey", {})
-            v_token = verified_session.get("session_token", "")
-            v_pnr = verified_session.get("pnr", "")
-            t_number = str(v_journey.get("train_number", train_num)).strip()
-            t_name = str(v_journey.get("train_name", "")).strip()
-            j_date = str(v_journey.get("travel_date", "")).strip()
-            b_from = str(v_journey.get("from_station", "")).strip()
-            d_to = str(v_journey.get("to_station", "")).strip()
-            p_coach = str(v_journey.get("coach", "")).strip().upper()
-            p_seat = str(v_journey.get("seat_number", "")).strip()
-            p_berth = str(v_journey.get("berth_type", "")).strip()
-            p_class = str(v_journey.get("class_name") or v_journey.get("class_code", "")).strip()
+            v_token = st.session_state.get("pnr_session_token", "")
+            t_number = str(v_journey_data.get("train_number", train_num)).strip()
+            t_name = str(v_journey_data.get("train_name", "")).strip()
+            p_name = str(v_journey_data.get("passenger_name", "John Doe")).strip()
+            j_date = str(v_journey_data.get("travel_date", "")).strip()
+            b_from = str(v_journey_data.get("from_station", "")).strip()
+            d_to = str(v_journey_data.get("to_station", "")).strip()
+            p_coach = str(v_journey_data.get("coach", "")).strip().upper()
+            p_seat = str(v_journey_data.get("seat_number", "")).strip()
+            p_berth = str(v_journey_data.get("berth_type", "")).strip()
+            p_class = str(v_journey_data.get("class_name") or v_journey_data.get("class_code", "")).strip()
+            v_status = str(v_journey_data.get("verification_status", "DEMO")).upper()
 
             st.markdown(
                 f"""
                 <div style="background:linear-gradient(135deg, rgba(16,185,129,0.14) 0%, rgba(6,182,212,0.08) 100%); border:1.5px solid #10b981; border-radius:14px; padding:16px 20px; margin-bottom:14px; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:8px;">
                         <span style="color:#34d399; font-weight:800; font-size:1.0rem; display:flex; align-items:center; gap:6px;">
-                            <span>✓</span> <span>PNR Verified</span>
+                            <span>✓</span> <span>JOURNEY VERIFIED</span>
                         </span>
-                        <span style="color:#94a3b8; font-size:0.8rem; font-family:monospace; background:rgba(15,23,42,0.7); border:1px solid rgba(255,255,255,0.1); padding:2px 10px; border-radius:6px;">PNR: {html.escape(v_pnr)}</span>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="background:rgba(245,158,11,0.2); border:1px solid #f59e0b; color:#fbbf24; font-size:0.68rem; font-weight:700; padding:2px 8px; border-radius:9999px;">
+                                {html.escape(v_status)} / SIMULATED PNR
+                            </span>
+                            <span style="color:#94a3b8; font-size:0.8rem; font-family:monospace; background:rgba(15,23,42,0.7); border:1px solid rgba(255,255,255,0.1); padding:2px 10px; border-radius:6px;">
+                                PNR: {html.escape(verified_pnr_val)}
+                            </span>
+                        </div>
                     </div>
                     <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:12px; font-size:0.85rem;">
+                        <div>
+                            <div style="color:#94a3b8; font-size:0.7rem; font-weight:700; text-transform:uppercase;">Passenger</div>
+                            <div style="color:#ffffff; font-weight:800; font-size:0.95rem; margin-top:2px;">{html.escape(p_name)}</div>
+                        </div>
                         <div>
                             <div style="color:#94a3b8; font-size:0.7rem; font-weight:700; text-transform:uppercase;">Train</div>
                             <div style="color:#ffffff; font-weight:800; font-size:0.95rem; margin-top:2px;">{html.escape(t_number)}</div>
@@ -3446,16 +3429,8 @@ def render_train_info(train: Dict[str, Any], section: Dict[str, Any], weather: O
                             <div style="color:#ffffff; font-weight:700; margin-top:2px;">{html.escape(t_name)}</div>
                         </div>
                         <div>
-                            <div style="color:#94a3b8; font-size:0.7rem; font-weight:700; text-transform:uppercase;">Journey Date</div>
-                            <div style="color:#ffffff; font-weight:700; margin-top:2px;">{html.escape(j_date)}</div>
-                        </div>
-                        <div>
-                            <div style="color:#94a3b8; font-size:0.7rem; font-weight:700; text-transform:uppercase;">From</div>
-                            <div style="color:#ffffff; font-weight:700; margin-top:2px;">{html.escape(b_from)}</div>
-                        </div>
-                        <div>
-                            <div style="color:#94a3b8; font-size:0.7rem; font-weight:700; text-transform:uppercase;">To</div>
-                            <div style="color:#ffffff; font-weight:700; margin-top:2px;">{html.escape(d_to)}</div>
+                            <div style="color:#94a3b8; font-size:0.7rem; font-weight:700; text-transform:uppercase;">From &rarr; To</div>
+                            <div style="color:#ffffff; font-weight:700; margin-top:2px;">{html.escape(b_from)} &rarr; {html.escape(d_to)}</div>
                         </div>
                         <div>
                             <div style="color:#94a3b8; font-size:0.7rem; font-weight:700; text-transform:uppercase;">Coach</div>
@@ -3481,7 +3456,7 @@ def render_train_info(train: Dict[str, Any], section: Dict[str, Any], weather: O
                 c_resp = requests.post(
                     f"{BACKEND_URL}/api/pnr/coach-position",
                     json={"session_token": v_token},
-                    timeout=3.0,
+                    timeout=2.5,
                 )
                 if c_resp.status_code == 200:
                     coach_pos_res = c_resp.json()
@@ -3490,7 +3465,7 @@ def render_train_info(train: Dict[str, Any], section: Dict[str, Any], weather: O
 
             if not coach_pos_res:
                 # Local fallback resolution
-                from backend.routes.pnr import _get_active_session, get_verified_coach_position, PnrCoachPositionRequest
+                from backend.routes.pnr import get_verified_coach_position, PnrCoachPositionRequest
                 import asyncio
                 try:
                     coach_pos_res = asyncio.run(get_verified_coach_position(PnrCoachPositionRequest(session_token=v_token)))
@@ -3507,13 +3482,23 @@ def render_train_info(train: Dict[str, Any], section: Dict[str, Any], weather: O
                 # Render verified physical formation with passenger coach highlighted
                 st.markdown(clean_html(render_coach_formation_html(t_number, p_coach, p_seat)), unsafe_allow_html=True)
 
-            if st.button("🔄 Clear / Verify Another PNR", key=f"clear_pnr_{train_num}", use_container_width=True):
-                try:
-                    requests.post(f"{BACKEND_URL}/api/pnr/logout", json={"session_token": v_token}, timeout=2.0)
-                except Exception:
-                    pass
-                st.session_state.pop(sess_key, None)
+            if st.button("🔄 Clear / Verify Another PNR", key="btn_clear_verified_pnr", use_container_width=True):
+                if v_token:
+                    try:
+                        requests.post(f"{BACKEND_URL}/api/pnr/logout", json={"session_token": v_token}, timeout=2.0)
+                    except Exception:
+                        pass
+                    try:
+                        from backend.database import delete_pnr_session
+                        delete_pnr_session(v_token)
+                    except Exception:
+                        pass
+                st.session_state.pop("pnr_verified", None)
+                st.session_state.pop("pnr_session_token", None)
+                st.session_state.pop("verified_journey", None)
+                st.session_state.pop("verified_pnr", None)
                 st.rerun()
+
 
 
 

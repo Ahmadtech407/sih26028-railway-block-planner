@@ -26,7 +26,7 @@ from backend.database import (
     get_pnr_session,
     delete_pnr_session,
 )
-from backend.services.ticket_service import verify_ticket, sanitize_payload
+from backend.services.ticket_service import verify_ticket, verify_pnr, sanitize_payload
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +85,98 @@ def _get_active_session(token: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+def execute_pnr_verification(raw_pnr_str: str) -> Dict[str, Any]:
+    """
+    Unified end-to-end PNR verification service.
+    Directly callable by FastAPI routes and internal Streamlit workflows.
+    Consumes canonical verify_pnr() from backend.services.ticket_service.
+    Creates 15-minute cryptographically secure session token in SQLite and memory cache.
+    """
+    raw_pnr = sanitize_payload(str(raw_pnr_str).strip())
+
+    # Strict 10-digit numerical validation
+    if not re.fullmatch(r"^\d{10}$", raw_pnr):
+        return {
+            "verified": False,
+            "success": False,
+            "status_code": status.HTTP_400_BAD_REQUEST,
+            "message": "Please enter a valid 10-digit PNR.",
+            "detail": "Please enter a valid 10-digit PNR.",
+        }
+
+    # Canonical PNR lookup via single source of truth
+    record = verify_pnr(raw_pnr)
+    if not record or not record.get("match_verified"):
+        return {
+            "verified": False,
+            "success": False,
+            "status_code": status.HTTP_404_NOT_FOUND,
+            "message": "PNR not found. Please check the PNR and try again.",
+            "detail": "PNR could not be verified. PNR not found.",
+        }
+
+    # Generate cryptographically secure session token (32 bytes = 256 bits)
+    session_token = secrets.token_hex(32)
+    now_dt = datetime.now(timezone.utc)
+    exp_dt = now_dt + timedelta(minutes=15)
+    exp_iso = exp_dt.isoformat()
+
+    journey_data = {
+        "train_number": str(record.get("train_number", "")),
+        "train_name": str(record.get("train_name", "")),
+        "travel_date": str(record.get("travel_date", "")),
+        "from_station": str(record.get("from_station", "")),
+        "to_station": str(record.get("to_station", "")),
+        "coach": str(record.get("coach", "")),
+        "seat_number": str(record.get("seat_number", "")),
+        "berth_type": str(record.get("berth_type", "")),
+        "class_code": str(record.get("class_code", "")),
+        "class_name": str(record.get("class_name", "")),
+        "status": str(record.get("status", "CNF")),
+        "status_detail": str(record.get("status_detail", "Confirmed / Allotted")),
+        "passenger_name": str(record.get("passenger_name", "John Doe")),
+        "verification_status": "DEMO",
+    }
+
+    # Store in persistent SQLite and in-memory cache
+    create_pnr_session(session_token, raw_pnr, journey_data, exp_iso, verification_status="DEMO")
+    cached_record = journey_data.copy()
+    cached_record.update({
+        "token": session_token,
+        "pnr": raw_pnr,
+        "verification_status": "DEMO",
+        "expires_at": exp_iso,
+        "expires_at_dt": exp_dt,
+    })
+    _MEMORY_SESSIONS[session_token] = cached_record
+
+    return {
+        "verified": True,
+        "success": True,
+        "match_verified": True,
+        "status_code": status.HTTP_200_OK,
+        "verification_status": "DEMO",
+        "session_token": session_token,
+        "pnr": raw_pnr,
+        "passenger_name": str(record.get("passenger_name", "John Doe")),
+        "passenger": record.get("passenger", {}),
+        "train_number": str(record.get("train_number", "")),
+        "train_name": str(record.get("train_name", "")),
+        "travel_date": str(record.get("travel_date", "")),
+        "from_station": str(record.get("from_station", "")),
+        "to_station": str(record.get("to_station", "")),
+        "coach": str(record.get("coach", "")),
+        "seat_number": str(record.get("seat_number", "")),
+        "berth_type": str(record.get("berth_type", "")),
+        "class_code": str(record.get("class_code", "")),
+        "class_name": str(record.get("class_name", "")),
+        "status": str(record.get("status", "CNF")),
+        "journey": journey_data,
+        "booking": record.get("booking", {}),
+        "message": "PNR verified successfully.",
+    }
+
+
 @router.post("/verify", summary="Verify 10-digit PNR and create secure session")
 async def verify_pnr_endpoint(req: PnrVerifyRequest):
     """
@@ -93,72 +185,19 @@ async def verify_pnr_endpoint(req: PnrVerifyRequest):
     - If PNR does not exist in authorized source: returns HTTP 404 Not Found.
     - If verified: creates a 15-minute secure session token and returns journey details.
     """
-    raw_pnr = sanitize_payload(req.pnr)
-
-    # Strict 10-digit numerical validation
-    if not re.fullmatch(r"^\d{10}$", raw_pnr):
+    res = execute_pnr_verification(req.pnr)
+    if not res.get("verified"):
         return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=res.get("status_code", status.HTTP_404_NOT_FOUND),
             content={
                 "success": False,
-                "message": "Please enter a valid 10-digit PNR.",
-                "detail": "Please enter a valid 10-digit PNR.",
+                "verified": False,
+                "message": res.get("message", "PNR could not be verified."),
+                "detail": res.get("detail", "PNR could not be verified."),
             },
         )
+    return res
 
-    result = verify_ticket(raw_pnr)
-
-    if not result.get("match_verified"):
-        return JSONResponse(
-            status_code=status.HTTP_404_NOT_FOUND,
-            content={
-                "success": False,
-                "message": "PNR could not be verified.",
-                "detail": "PNR could not be verified.",
-            },
-        )
-
-    journey = result.get("journey", {})
-    booking = result.get("booking", {})
-
-    # Generate cryptographically secure session token
-    session_token = secrets.token_hex(32)
-    now_dt = datetime.now(timezone.utc)
-    exp_dt = now_dt + timedelta(minutes=15)
-    exp_iso = exp_dt.isoformat()
-
-    journey_data = {
-        "train_number": str(journey.get("train_number", "")),
-        "train_name": str(journey.get("train_name", "")),
-        "travel_date": str(journey.get("travel_date", "")),
-        "from_station": str(journey.get("from_station", "")),
-        "to_station": str(journey.get("to_station", "")),
-        "coach": str(booking.get("coach", "")),
-        "seat_number": str(booking.get("seat_number", "")),
-        "berth_type": str(booking.get("berth_type", "")),
-        "class_code": str(journey.get("class_code", "")),
-        "class_name": str(journey.get("class_name", "")),
-        "status": str(booking.get("status", "CNF")),
-    }
-
-    # Store in database and cache
-    create_pnr_session(session_token, raw_pnr, journey_data, exp_iso)
-    cached_record = journey_data.copy()
-    cached_record.update({
-        "token": session_token,
-        "pnr": raw_pnr,
-        "expires_at": exp_iso,
-        "expires_at_dt": exp_dt,
-    })
-    _MEMORY_SESSIONS[session_token] = cached_record
-
-    return {
-        "success": True,
-        "session_token": session_token,
-        "pnr": raw_pnr,
-        "journey": journey_data,
-        "message": "PNR verified successfully.",
-    }
 
 
 @router.post("/coach-position", summary="Get passenger coach position from verified session")
@@ -261,6 +300,7 @@ async def get_verified_coach_position(req: PnrCoachPositionRequest):
     return {
         "status": "SUCCESS",
         "provenance": provenance,
+        "verification_status": session.get("verification_status", "DEMO"),
         "train_number": train_num,
         "train_name": session.get("train_name", ""),
         "coach": coach_id,
@@ -270,10 +310,14 @@ async def get_verified_coach_position(req: PnrCoachPositionRequest):
         "total_coaches": total_coaches,
         "coaches_before": coaches_before,
         "coaches_after": coaches_after,
+        "ahead_count": coaches_before,
+        "behind_count": coaches_after,
         "section": section,
+        "relative_section": section,
         "coaches": coaches,
         "message": f"Coach {coach_id} is at position {exact_idx + 1} of {total_coaches} ({section}).",
     }
+
 
 
 @router.post("/logout", summary="Invalidate verified PNR session")
@@ -312,8 +356,8 @@ async def get_pnr_endpoint(pnr: str):
             status_code=status.HTTP_404_NOT_FOUND,
             content={
                 "success": False,
-                "message": "PNR could not be verified.",
-                "detail": "PNR could not be verified.",
+                "message": "PNR not found. Please check the PNR and try again.",
+                "detail": "PNR not found. Please check the PNR and try again.",
             },
         )
 

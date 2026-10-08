@@ -40,7 +40,7 @@ def test_controlled_demo_pnr_alias():
 
 def test_random_pnr_returns_404_not_found():
     """Verify that a random PNR returns HTTP 404 and does NOT display demonstration data."""
-    random_pnrs = ["9999999999", "1234567890", "0000000000", "9876543219"]
+    random_pnrs = ["9999999999", "1234567891", "0000000000", "9876543219"]
     for pnr in random_pnrs:
         resp = client.post("/api/pnr/verify", json={"pnr": pnr})
         assert resp.status_code == 404

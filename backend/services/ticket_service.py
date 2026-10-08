@@ -200,10 +200,115 @@ def sanitize_payload(raw: str) -> str:
     return cleaned if cleaned else raw
 
 
+def verify_pnr(pnr: str) -> Optional[Dict[str, Any]]:
+    """
+    Canonical PNR verification provider for both Quick PNR Lookup and Find My Coach.
+    Validates 10-digit PNR against database and known demo manifest.
+    Returns canonical dictionary with:
+    - passenger_name
+    - pnr
+    - train_number
+    - train_name
+    - coach
+    - seat_number
+    - berth_type
+    - class_code
+    - class_name
+    - travel_date
+    - from_station
+    - to_station
+    - status
+    - verification_status: 'DEMO'
+    - match_verified: True
+    """
+    if not pnr or not str(pnr).strip():
+        return None
+
+    clean_pnr = sanitize_payload(str(pnr).strip())
+    if not clean_pnr or not re.fullmatch(r"^\d{10}$", clean_pnr):
+        return None
+
+    # 1. Check persistent database (pnr_tickets)
+    try:
+        from backend.database import get_pnr_ticket
+        db_ticket = get_pnr_ticket(clean_pnr)
+        if db_ticket:
+            journey = db_ticket.get("journey", {})
+            booking = db_ticket.get("booking", {})
+            passenger = db_ticket.get("passenger", {})
+            return {
+                "pnr": clean_pnr,
+                "passenger_name": str(passenger.get("name", "John Doe")),
+                "passenger": passenger,
+                "train_number": str(journey.get("train_number", "")),
+                "train_name": str(journey.get("train_name", "")),
+                "from_station": str(journey.get("from_station", "")),
+                "to_station": str(journey.get("to_station", "")),
+                "travel_date": str(journey.get("travel_date", "")),
+                "departure_time": str(journey.get("departure_time", "")),
+                "arrival_time": str(journey.get("arrival_time", "")),
+                "coach": str(booking.get("coach", "")),
+                "seat_number": str(booking.get("seat_number", "")),
+                "berth_type": str(booking.get("berth_type", "")),
+                "class_code": str(journey.get("class_code", "")),
+                "class_name": str(journey.get("class_name", "")),
+                "status": str(booking.get("status", "CNF")),
+                "status_detail": str(booking.get("status_detail", "Confirmed / Allotted")),
+                "fare": float(booking.get("fare", 1480.0) or 1480.0),
+                "verification_status": "DEMO",
+                "is_demo": True,
+                "match_verified": True,
+                "success": True,
+                "ticket_id": db_ticket.get("ticket_id", f"IRCTC-{clean_pnr}"),
+                "journey": journey,
+                "booking": booking,
+                "verified_at": datetime.now(timezone.utc).isoformat(),
+            }
+    except Exception:
+        pass
+
+    # 2. Exact match in pre-seeded manifest
+    if clean_pnr in KNOWN_TICKETS:
+        rec = KNOWN_TICKETS[clean_pnr]
+        journey = rec.get("journey", {})
+        booking = rec.get("booking", {})
+        passenger = rec.get("passenger", {})
+        return {
+            "pnr": clean_pnr,
+            "passenger_name": str(passenger.get("name", "John Doe")),
+            "passenger": passenger,
+            "train_number": str(journey.get("train_number", "")),
+            "train_name": str(journey.get("train_name", "")),
+            "from_station": str(journey.get("from_station", "")),
+            "to_station": str(journey.get("to_station", "")),
+            "travel_date": str(journey.get("travel_date", "")),
+            "departure_time": str(journey.get("departure_time", "")),
+            "arrival_time": str(journey.get("arrival_time", "")),
+            "coach": str(booking.get("coach", "")),
+            "seat_number": str(booking.get("seat_number", "")),
+            "berth_type": str(booking.get("berth_type", "")),
+            "class_code": str(journey.get("class_code", "")),
+            "class_name": str(journey.get("class_name", "")),
+            "status": str(booking.get("status", "CNF")),
+            "status_detail": str(booking.get("status_detail", "Confirmed / Allotted")),
+            "fare": float(booking.get("fare", 1480.0) or 1480.0),
+            "verification_status": "DEMO",
+            "is_demo": True,
+            "match_verified": True,
+            "success": True,
+            "ticket_id": rec.get("ticket_id", f"IRCTC-{clean_pnr}"),
+            "journey": journey,
+            "booking": booking,
+            "verified_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+    return None
+
+
 def verify_ticket(payload: str) -> Dict[str, Any]:
     """
     Verifies a scanned ticket QR/barcode payload or 10-digit PNR against the database.
-    If matched with stored tickets or known manifest, returns official details.
+    Uses canonical verify_pnr provider as the single source of truth for PNR verification.
     If PNR does not exist, returns NOT_FOUND (never synthesizes fake demonstration data).
     """
     if not payload or not str(payload).strip():
@@ -218,47 +323,54 @@ def verify_ticket(payload: str) -> Dict[str, Any]:
     raw_clean = str(payload).strip()
     pnr_key = sanitize_payload(raw_clean)
 
-    # 1. Check persistent database (pnr_tickets)
-    try:
-        from backend.database import get_pnr_ticket
-        db_ticket = get_pnr_ticket(pnr_key)
-        if db_ticket:
-            data = db_ticket.copy()
-            data["status"] = "SUCCESS"
-            data["success"] = True
-            data["match_verified"] = True
-            data["raw_payload"] = raw_clean
-            data["verified_at"] = datetime.now(timezone.utc).isoformat()
-            if "security_hash" not in data:
-                data["security_hash"] = f"SHA256-IRCTC-{hash(pnr_key) & 0xFFFFFFF:07X}"
-            return data
-    except Exception:
-        pass
-
-    # 2. Exact match in pre-seeded manifest
-    if pnr_key in KNOWN_TICKETS:
-        data = KNOWN_TICKETS[pnr_key].copy()
+    # 1. Canonical verify_pnr lookup
+    pnr_match = verify_pnr(pnr_key)
+    if pnr_match:
+        data = pnr_match.copy()
         data["status"] = "SUCCESS"
-        data["success"] = True
-        data["match_verified"] = True
         data["raw_payload"] = raw_clean
-        data["verified_at"] = datetime.now(timezone.utc).isoformat()
         data["security_hash"] = f"SHA256-IRCTC-{hash(pnr_key) & 0xFFFFFFF:07X}"
         return data
 
-    # 3. Check by ticket_id exact match (e.g. from scanned barcode)
+    # 2. Check by ticket_id exact match (e.g. from scanned barcode)
     for record in KNOWN_TICKETS.values():
         if pnr_key == record.get("ticket_id"):
-            data = record.copy()
-            data["status"] = "SUCCESS"
-            data["success"] = True
-            data["match_verified"] = True
-            data["raw_payload"] = raw_clean
-            data["verified_at"] = datetime.now(timezone.utc).isoformat()
-            data["security_hash"] = f"SHA256-IRCTC-{hash(pnr_key) & 0xFFFFFFF:07X}"
-            return data
+            journey = record.get("journey", {})
+            booking = record.get("booking", {})
+            passenger = record.get("passenger", {})
+            p_pnr = record.get("pnr", pnr_key)
+            return {
+                "pnr": p_pnr,
+                "passenger_name": str(passenger.get("name", "John Doe")),
+                "passenger": passenger,
+                "train_number": str(journey.get("train_number", "")),
+                "train_name": str(journey.get("train_name", "")),
+                "from_station": str(journey.get("from_station", "")),
+                "to_station": str(journey.get("to_station", "")),
+                "travel_date": str(journey.get("travel_date", "")),
+                "departure_time": str(journey.get("departure_time", "")),
+                "arrival_time": str(journey.get("arrival_time", "")),
+                "coach": str(booking.get("coach", "")),
+                "seat_number": str(booking.get("seat_number", "")),
+                "berth_type": str(booking.get("berth_type", "")),
+                "class_code": str(journey.get("class_code", "")),
+                "class_name": str(journey.get("class_name", "")),
+                "status": "SUCCESS",
+                "status_detail": str(booking.get("status_detail", "Confirmed / Allotted")),
+                "fare": float(booking.get("fare", 1480.0) or 1480.0),
+                "verification_status": "DEMO",
+                "is_demo": True,
+                "match_verified": True,
+                "success": True,
+                "ticket_id": record.get("ticket_id", pnr_key),
+                "journey": journey,
+                "booking": booking,
+                "raw_payload": raw_clean,
+                "security_hash": f"SHA256-IRCTC-{hash(pnr_key) & 0xFFFFFFF:07X}",
+                "verified_at": datetime.now(timezone.utc).isoformat(),
+            }
 
-    # 4. Strict rejection for random / unknown PNRs (NO fake demonstration data synthesis)
+    # 3. Strict rejection for random / unknown PNRs (NO fake demonstration data synthesis)
     return {
         "status": "NOT_FOUND",
         "match_verified": False,
@@ -266,4 +378,5 @@ def verify_ticket(payload: str) -> Dict[str, Any]:
         "message": "PNR not found. Please check the PNR and try again.",
         "verified_at": datetime.now(timezone.utc).isoformat(),
     }
+
 
