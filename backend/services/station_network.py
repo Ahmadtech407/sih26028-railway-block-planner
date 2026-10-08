@@ -245,7 +245,11 @@ def find_station(query: Any) -> Optional[Dict[str, Any]]:
         if st_code.lower() == clean_raw:
             return st_info
         st_name_clean = st_info["name"].lower().replace(" junction", "").replace(" central", "").replace(" cantt", "").strip()
-        if clean_raw in st_name_clean or st_name_clean in clean_raw:
+        if clean_raw == st_name_clean:
+            return st_info
+        # Substring match requires at least 3 characters to prevent short English words
+        # (e.g. 'to', 'go', 'in', 'at') from matching names like 'Malda Town' or 'Gorakhpur'
+        if len(clean_raw) >= 3 and (clean_raw in st_name_clean or (len(st_name_clean) >= 3 and st_name_clean in clean_raw)):
             return st_info
 
     return None

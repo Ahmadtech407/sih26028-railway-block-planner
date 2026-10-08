@@ -3085,6 +3085,303 @@ def render_ringing_alarm(train: Dict[str, Any], dest_eta: int) -> None:
             st.rerun()
 
 
+def query_journey_assistant_api(
+    query: str,
+    origin: Optional[str] = None,
+    destination: Optional[str] = None,
+    travel_date: Optional[str] = None,
+    latest_arrival: Optional[str] = None,
+    earliest_departure: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Queries backend REST API with seamless in-process fallback for network resiliency.
+    """
+    payload = {
+        "query": query,
+        "origin": origin,
+        "destination": destination,
+        "travel_date": travel_date,
+        "latest_arrival": latest_arrival,
+        "earliest_departure": earliest_departure,
+    }
+    try:
+        resp = requests.post(
+            f"{BACKEND_URL}/api/journey-assistant/search",
+            json=payload,
+            timeout=4.0,
+        )
+        if resp.status_code == 200:
+            return resp.json()
+    except Exception:
+        pass
+
+    try:
+        from backend.services.journey_assistant_service import search_journey_assistant
+        return search_journey_assistant(
+            query=query,
+            origin_override=origin,
+            dest_override=destination,
+            travel_date_override=travel_date,
+            latest_arrival_override=latest_arrival,
+        )
+    except Exception as exc:
+        return {
+            "status": "ERROR",
+            "message": f"Unable to evaluate journey: {str(exc)}",
+            "recommended_train": None,
+            "alternatives": [],
+            "provenance_label": "DEMO / SIMULATED DATA",
+        }
+
+
+def render_ai_journey_assistant() -> None:
+    """
+    Renders the RailTrack AI Journey Assistant card.
+    Supports natural language queries (IST timezone aware),
+    deadline feasibility, transparent ranking, and data provenance.
+    """
+    if "journey_assistant_result" not in st.session_state:
+        st.session_state.journey_assistant_result = None
+    if "journey_assistant_query" not in st.session_state:
+        st.session_state.journey_assistant_query = ""
+
+    st.markdown(
+        """
+        <div style="background:linear-gradient(135deg, rgba(15,23,42,0.85) 0%, rgba(30,41,59,0.7) 100%);
+                    border:1px solid rgba(56,189,248,0.25); border-radius:16px; padding:1.2rem 1.4rem;
+                    margin-bottom:1.2rem; box-shadow:0 8px 32px rgba(0,0,0,0.37);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:8px;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:1.4rem;">🤖</span>
+                    <div>
+                        <div style="font-weight:800; font-size:1.1rem; color:#f8fafc; letter-spacing:-0.01em;">
+                            RailTrack AI Journey Assistant
+                        </div>
+                        <div style="font-size:0.75rem; color:#94a3b8;">
+                            IST Timezone Aware · Deadline Feasibility · Dynamic ML Delays · Anti-Hallucination Verified
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <span style="background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.4);
+                                 color:#fbbf24; font-size:0.68rem; font-weight:700; padding:4px 10px;
+                                 border-radius:999px; letter-spacing:0.04em;">
+                        DEMO / SIMULATED DATA
+                    </span>
+                </div>
+            </div>
+            <div style="font-size:0.83rem; color:#cbd5e1; margin-bottom:12px;">
+                Plan your journey in plain English (e.g. <em>"I need to reach Jammu from Delhi before 8 PM"</em> or <em>"from Delhi to Chandigarh after 6 AM that reaches before noon"</em>).
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    col_input, col_btn = st.columns([4.2, 1.4])
+    with col_input:
+        user_query = st.text_input(
+            "Natural Language Journey Request",
+            value=st.session_state.journey_assistant_query,
+            placeholder="e.g. I need to reach Jammu from Delhi before 8 PM",
+            key="input_ai_journey_query",
+            label_visibility="collapsed",
+        )
+    with col_btn:
+        search_clicked = st.button("🚀 FIND BEST TRAIN", type="primary", use_container_width=True, key="btn_ai_journey_search")
+
+    chip_cols = st.columns([1, 1, 1, 1.2])
+    with chip_cols[0]:
+        if st.button("📍 Jammu before 8 PM", key="chip_q1", use_container_width=True):
+            st.session_state.journey_assistant_query = "I need to reach Jammu from Delhi before 8 PM"
+            st.session_state.journey_assistant_result = query_journey_assistant_api("I need to reach Jammu from Delhi before 8 PM")
+            st.rerun()
+    with chip_cols[1]:
+        if st.button("📍 Chandigarh before noon", key="chip_q2", use_container_width=True):
+            st.session_state.journey_assistant_query = "from Delhi to Chandigarh after 6 AM that reaches before noon"
+            st.session_state.journey_assistant_result = query_journey_assistant_api("from Delhi to Chandigarh after 6 AM that reaches before noon")
+            st.rerun()
+    with chip_cols[2]:
+        if st.button("📍 Kanpur by 11 AM", key="chip_q3", use_container_width=True):
+            st.session_state.journey_assistant_query = "reach Kanpur from Delhi by 11 AM"
+            st.session_state.journey_assistant_result = query_journey_assistant_api("reach Kanpur from Delhi by 11 AM")
+            st.rerun()
+    with chip_cols[3]:
+        if st.button("📍 Prayagraj before midnight", key="chip_q4", use_container_width=True):
+            st.session_state.journey_assistant_query = "from Delhi to Prayagraj before midnight"
+            st.session_state.journey_assistant_result = query_journey_assistant_api("from Delhi to Prayagraj before midnight")
+            st.rerun()
+
+    with st.expander("🛠️ Manual Journey Parameters (Optional Override / Direct Timetable Search)", expanded=False):
+        f_c1, f_c2, f_c3, f_c4 = st.columns(4)
+        with f_c1:
+            m_orig = st.text_input("Origin Station (Code or Name)", placeholder="e.g. NDLS or New Delhi", key="m_orig_input")
+        with f_c2:
+            m_dest = st.text_input("Destination Station", placeholder="e.g. JAT or Jammu Tawi", key="m_dest_input")
+        with f_c3:
+            m_date = st.date_input("Travel Date", value=datetime.now().date(), key="m_date_input")
+        with f_c4:
+            m_deadline = st.text_input("Latest Arrival Deadline (HH:MM or AM/PM)", placeholder="e.g. 20:00 or 8 PM", key="m_deadline_input")
+        if st.button("🔍 Search with Manual Parameters", key="btn_manual_override_search", type="secondary"):
+            res = query_journey_assistant_api(
+                query="",
+                origin=m_orig.strip() or None,
+                destination=m_dest.strip() or None,
+                travel_date=m_date.isoformat(),
+                latest_arrival=m_deadline.strip() or None,
+            )
+            st.session_state.journey_assistant_result = res
+            st.rerun()
+
+    if search_clicked and user_query.strip():
+        st.session_state.journey_assistant_query = user_query.strip()
+        with st.spinner("Analyzing train timetables, computing dynamic delays & checking deadline buffers..."):
+            res = query_journey_assistant_api(user_query.strip())
+            st.session_state.journey_assistant_result = res
+
+    result = st.session_state.get("journey_assistant_result")
+    if result:
+        st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
+        status = result.get("status")
+
+        if status == "NEEDS_CLARIFICATION":
+            prompt = result.get("clarification_prompt", "Please specify missing details.")
+            st.warning(f"🤔 **Clarification Needed:** {prompt}")
+
+        elif status == "NO_TRAINS_FOUND":
+            explanation = result.get("explanation", "No scheduled train service found on this route.")
+            st.error(f"❌ **Route Timetable Notice:** {explanation}")
+
+        elif status == "SUCCESS":
+            rec = result.get("recommended_train")
+            no_suitable = result.get("no_suitable_train", False)
+            explanation = result.get("explanation", "")
+
+            if rec and not no_suitable:
+                t_num = rec.get("train_number")
+                t_name = rec.get("name")
+                status_label = rec.get("status_label", "🟢 SUITABLE")
+                color = rec.get("status_color", "#10b981")
+                dep_disp = rec.get("departure_display")
+                arr_disp = rec.get("scheduled_arrival_display")
+                exp_disp = rec.get("expected_arrival_display")
+                delay = rec.get("predicted_delay_minutes", 0)
+                buf_disp = rec.get("buffer_display")
+                dead_disp = rec.get("deadline_display")
+                classes = ", ".join(rec.get("classes", []))
+
+                card_html = f"""
+                <div style="background:rgba(15,23,42,0.9); border:2px solid {color}; border-radius:14px;
+                            padding:1.2rem 1.4rem; margin-bottom:12px; box-shadow:0 8px 24px rgba(0,0,0,0.4);">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px;">
+                        <div>
+                            <div style="font-size:0.72rem; font-weight:800; color:#38bdf8; text-transform:uppercase; letter-spacing:0.05em;">
+                                TOP RECOMMENDED SERVICE
+                            </div>
+                            <div style="font-size:1.3rem; font-weight:850; color:#ffffff; margin:3px 0;">
+                                Train {html.escape(str(t_num))} · {html.escape(str(t_name))}
+                            </div>
+                            <div style="font-size:0.8rem; color:#94a3b8;">
+                                Route: {html.escape(rec.get('origin_name', ''))} ➔ {html.escape(rec.get('dest_name', ''))} · Classes: {classes}
+                            </div>
+                        </div>
+                        <div>
+                            <span style="background:{color}22; border:1px solid {color}; color:{color}; font-weight:800;
+                                         font-size:0.85rem; padding:6px 12px; border-radius:8px; display:inline-block;">
+                                {status_label} · {buf_disp} buffer
+                            </span>
+                        </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:12px;
+                                margin:16px 0; background:rgba(255,255,255,0.03); padding:12px 14px; border-radius:10px;">
+                        <div>
+                            <div style="font-size:0.65rem; color:#64748b; font-weight:700; text-transform:uppercase;">Scheduled Dep</div>
+                            <div style="font-size:1.05rem; font-weight:800; color:#f8fafc;">{dep_disp}</div>
+                        </div>
+                        <div>
+                            <div style="font-size:0.65rem; color:#64748b; font-weight:700; text-transform:uppercase;">Scheduled Arr</div>
+                            <div style="font-size:1.05rem; font-weight:800; color:#94a3b8;">{arr_disp}</div>
+                        </div>
+                        <div>
+                            <div style="font-size:0.65rem; color:#64748b; font-weight:700; text-transform:uppercase;">ML Delay</div>
+                            <div style="font-size:1.05rem; font-weight:800; color:#f59e0b;">+{delay} min</div>
+                        </div>
+                        <div>
+                            <div style="font-size:0.65rem; color:#64748b; font-weight:700; text-transform:uppercase;">Expected Arrival</div>
+                            <div style="font-size:1.05rem; font-weight:850; color:#34d399;">{exp_disp}</div>
+                        </div>
+                        <div>
+                            <div style="font-size:0.65rem; color:#64748b; font-weight:700; text-transform:uppercase;">Your Deadline</div>
+                            <div style="font-size:1.05rem; font-weight:800; color:#38bdf8;">{dead_disp}</div>
+                        </div>
+                    </div>
+
+                    <div style="background:rgba(56,189,248,0.08); border-left:3px solid #38bdf8; padding:8px 12px; border-radius:4px; font-size:0.83rem; color:#e2e8f0;">
+                        💡 <strong>Transparent Assessment:</strong> {html.escape(explanation)}
+                    </div>
+                </div>
+                """
+                st.markdown(card_html, unsafe_allow_html=True)
+
+                col_trk, _ = st.columns([2.5, 4])
+                with col_trk:
+                    if st.button(f"🚆 Track Train {t_num} in Dashboard", key=f"btn_track_rec_{t_num}", type="secondary", use_container_width=True):
+                        st.session_state.train_search_query = str(t_num)
+                        st.session_state.passenger_from = f"{rec.get('origin_name')} ({rec.get('origin_code')})"
+                        st.session_state.passenger_to = f"{rec.get('dest_name')} ({rec.get('dest_code')})"
+                        st.rerun()
+
+            else:
+                st.markdown(
+                    f"""
+                    <div style="background:rgba(239,68,68,0.12); border:1px solid #ef4444; border-radius:12px;
+                                padding:1.1rem 1.3rem; margin-bottom:12px;">
+                        <div style="font-weight:800; font-size:1.05rem; color:#fca5a5;">
+                            ⚠️ Deadline Feasibility Notice
+                        </div>
+                        <div style="font-size:0.88rem; color:#fecaca; margin-top:4px;">
+                            {html.escape(explanation)}
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+            alts = result.get("alternatives", [])
+            if alts:
+                with st.expander(f"📋 Other Candidate Trains on Route ({len(alts)} options)", expanded=False):
+                    for idx, alt in enumerate(alts):
+                        a_num = alt.get("train_number")
+                        a_name = alt.get("name")
+                        a_status = alt.get("status_label", "")
+                        a_exp = alt.get("expected_arrival_display")
+                        a_buf = alt.get("buffer_display")
+                        a_met = alt.get("deadline_met")
+                        a_col = alt.get("status_color", "#94a3b8")
+
+                        st.markdown(
+                            f"""
+                            <div style="display:flex; justify-content:space-between; align-items:center;
+                                        background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06);
+                                        border-radius:8px; padding:8px 12px; margin-bottom:6px; flex-wrap:wrap; gap:6px;">
+                                <div>
+                                    <strong style="color:#ffffff;">Train {html.escape(str(a_num))} · {html.escape(str(a_name))}</strong>
+                                    <div style="font-size:0.75rem; color:#94a3b8;">
+                                        Dep: {alt.get('departure_display')} ➔ Expected Arr: {a_exp} (+{alt.get('predicted_delay_minutes')}m delay)
+                                    </div>
+                                </div>
+                                <div>
+                                    <span style="color:{a_col}; font-weight:750; font-size:0.78rem;">
+                                        {a_status} ({a_buf} {'buffer' if a_met else 'late'})
+                                    </span>
+                                </div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
+
+
 def render_search(
     sections: List[Dict[str, Any]]
 ) -> tuple[str, Dict[str, Any], List[Dict[str, Any]], Optional[Dict[str, Any]]]:
@@ -4648,7 +4945,10 @@ def render_passenger_view() -> None:
             else:
                 render_public_signin_banner()
 
-            # 2. Hero Travel Banner
+            # 2. RailTrack AI Journey Assistant
+            render_ai_journey_assistant()
+
+            # 3. Hero Travel Banner
             st.markdown(generate_hero_banner_svg(), unsafe_allow_html=True)
 
             # 3. Selected Current Train Card

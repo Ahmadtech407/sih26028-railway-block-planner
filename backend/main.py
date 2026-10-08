@@ -27,6 +27,7 @@ from backend.routes.auth import router as auth_router
 from backend.routes.clearance import router as clearance_router
 from backend.routes.tickets import router as tickets_router
 from backend.routes.pnr import router as pnr_router
+from backend.routes.journey_assistant import router as journey_assistant_router
 from backend.database import init_database
 from backend.schemas.api_models import OperationalReadinessReport
 from backend.websocket import ws_manager
@@ -177,6 +178,8 @@ class RateLimitingMiddleware(BaseHTTPMiddleware):
             "/api/auth/signup": (15, 60.0),
             "/api/optimizer/jobs": (15, 60.0),
             "/api/optimizer/solve": (15, 60.0),
+            "/api/journey-assistant/search": (30, 60.0),
+            "/api/journey-assistant/parse": (30, 60.0),
         }
 
         if path in limit_map:
@@ -230,6 +233,9 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(tickets_router, prefix="/api")
 app.include_router(pnr_router, prefix="/api")
 app.include_router(clearance_router, prefix="/api")
+
+# AI Journey Assistant router
+app.include_router(journey_assistant_router, prefix="/api")
 
 
 # -------------------------------------------------------------------
