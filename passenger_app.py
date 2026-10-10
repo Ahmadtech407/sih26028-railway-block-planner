@@ -16,11 +16,14 @@ import streamlit.components.v1 as components
 
 
 st.set_page_config(
-    page_title="RailTrack Passenger Dashboard",
+    page_title="RailTrack — Railway Travel & Operations Platform",
     page_icon="🚆",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="auto",
 )
+
+from ui.theme import inject_custom_theme
+inject_custom_theme()
 
 # Inject viewport meta & module preloads for zero-error responsive rendering
 st.markdown(
@@ -4990,14 +4993,14 @@ def render_passenger_view() -> None:
 def main() -> None:
     initialize_auth_state()
     validate_auth_session()
-    if st.session_state.auth_screen:
-        render_auth_screen(st.session_state.auth_screen)
-        return
-    if st.session_state.account_view:
-        render_account_screen()
-        return
-    render_passenger_view()
+    from ui.routing import NAVIGATION_STRUCTURE
+    nav = st.navigation(NAVIGATION_STRUCTURE)
+    nav.run()
 
+
+from streamlit.runtime.scriptrunner import get_script_run_ctx
 
 if __name__ == "__main__":
     main()
+elif get_script_run_ctx() is not None:
+    main()
