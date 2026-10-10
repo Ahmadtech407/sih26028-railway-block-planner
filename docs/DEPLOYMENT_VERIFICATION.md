@@ -61,3 +61,17 @@ All unit, integration, and safety gate test suites were executed in the producti
 1. **Authentication Secrets**: JWT tokens persist across application restarts via persistent SQLite / Supabase database.
 2. **Database Resilience**: Local SQLite database uses zero-downtime online backup API with SHA-256 fingerprinting.
 3. **Live Railway Field Blocker**: Direct CRIS/NTES streaming requires an authenticated Indian Railways VPN and official RDSO sponsorship. In production on Render, RailTrack operates safely in **Non-Vital Advisory Mode**.
+
+---
+
+## 4. Live Render Verification Results
+
+- **Live URL**: `https://railway-block-planner-ei5s.onrender.com`
+- **Streamlit Health Check (`/_stcore/health`)**: `HTTP 200 OK` (Body: `ok`)
+- **Main Portal Root (`/`)**: `HTTP 200 OK` (Streamlit Passenger Portal Bundle)
+- **Deployment Topology**:
+  - `sih26028-railtrack-passenger` (Live on Render: `railway-block-planner-ei5s`)
+  - `sih26028-railway-backend` (FastAPI REST service defined in `render.yaml`)
+- **Commit Verification**: `94f40e8` pushed to `origin/main` on `https://github.com/Ahmadtech407/sih26028-railway-block-planner`.
+- **Regression Suite**: 218 automated tests passing (100% pass rate).
+
