@@ -4993,8 +4993,8 @@ def render_passenger_view() -> None:
 def main() -> None:
     initialize_auth_state()
     validate_auth_session()
-    from ui.routing import NAVIGATION_STRUCTURE
-    nav = st.navigation(NAVIGATION_STRUCTURE)
+    from ui.routing import get_navigation_structure
+    nav = st.navigation(get_navigation_structure())
     nav.run()
 
 
