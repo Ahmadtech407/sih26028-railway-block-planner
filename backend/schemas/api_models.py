@@ -325,6 +325,9 @@ class BlockOptimizationRequest(BaseModel):
     work_type: Optional[str] = Field("Rail Replacement", example="Rail Replacement")
     override_weather_risk: Optional[str] = Field(None, description="Optional override for testing weather impact (LOW/MEDIUM/HIGH/EXTREME)")
     override_platform_conflict: Optional[bool] = Field(None, description="Optional override for testing platform conflict scenarios")
+    min_separation_minutes: Optional[int] = Field(None, ge=1, le=120, description="Configurable separation between alternative solutions")
+    setup_margin_minutes: Optional[int] = Field(None, ge=0, le=60, description="Machine transit and protection setup buffer")
+    clearance_margin_minutes: Optional[int] = Field(None, ge=0, le=60, description="Post-work track inspection and clearance buffer")
 
 
 class AffectedTrainInfo(BaseModel):
@@ -385,6 +388,8 @@ class BlockOptimizationResponse(BaseModel):
     optimization_reason: Optional[str] = None
     reasons: List[str] = Field(default_factory=list)
     alternatives: List[AlternativeSlot] = Field(default_factory=list)
+    solver_status: Optional[str] = Field("OPTIMAL", description="Mathematical solver status: OPTIMAL, FEASIBLE, INFEASIBLE, UNKNOWN")
+    independent_validation_status: Optional[str] = Field(None, description="Independent verification status")
     message: Optional[str] = None
 
 

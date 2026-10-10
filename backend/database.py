@@ -115,10 +115,87 @@ def _init_sqlite_tables() -> None:
                     expires_at TEXT NOT NULL
                 );
             """)
-            try:
-                cur.execute("ALTER TABLE pnr_sessions ADD COLUMN verification_status TEXT DEFAULT 'DEMO'")
-            except Exception:
-                pass
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ohe_permits (
+                    permit_id TEXT PRIMARY KEY,
+                    block_id TEXT NOT NULL,
+                    electrical_section_id TEXT NOT NULL,
+                    state TEXT NOT NULL,
+                    tpc_officer_id TEXT,
+                    power_block_permit_no TEXT,
+                    discharge_rod_locations TEXT,
+                    requested_at TEXT,
+                    confirmed_at TEXT,
+                    permit_issued_at TEXT,
+                    work_completed_at TEXT,
+                    restored_at TEXT,
+                    remarks TEXT
+                );
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS tsr_records (
+                    tsr_id TEXT PRIMARY KEY,
+                    block_id TEXT,
+                    section_id TEXT NOT NULL,
+                    track_id TEXT NOT NULL,
+                    start_km REAL NOT NULL,
+                    end_km REAL NOT NULL,
+                    max_speed_kmph REAL NOT NULL,
+                    normal_speed_kmph REAL NOT NULL,
+                    effective_from_iso TEXT NOT NULL,
+                    effective_until_iso TEXT NOT NULL,
+                    reason TEXT NOT NULL,
+                    issued_by TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    staged_recovery_json TEXT,
+                    created_at TEXT NOT NULL
+                );
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS track_machines (
+                    machine_id TEXT PRIMARY KEY,
+                    machine_type TEXT NOT NULL,
+                    stabling_station TEXT NOT NULL,
+                    transit_speed_kmph REAL NOT NULL,
+                    transit_duration_min INTEGER NOT NULL,
+                    setup_time_min INTEGER NOT NULL,
+                    clearance_time_min INTEGER NOT NULL,
+                    assigned_block_id TEXT
+                );
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS committed_blocks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    transaction_id TEXT UNIQUE NOT NULL,
+                    block_id TEXT NOT NULL,
+                    section_id TEXT NOT NULL,
+                    start_time TEXT NOT NULL,
+                    end_time TEXT NOT NULL,
+                    work_type TEXT,
+                    committed_at TEXT NOT NULL,
+                    caution_board_notice TEXT,
+                    committed_by TEXT
+                );
+            """)
+            # Migrations for existing tables
+            clearance_migrations = [
+                "ALTER TABLE clearance_records ADD COLUMN ohe_permit_id TEXT;",
+                "ALTER TABLE clearance_records ADD COLUMN ohe_isolation_confirmed INTEGER DEFAULT 0;",
+                "ALTER TABLE clearance_records ADD COLUMN signaling_acknowledged INTEGER DEFAULT 0;",
+                "ALTER TABLE clearance_records ADD COLUMN tsr_id TEXT;",
+                "ALTER TABLE clearance_records ADD COLUMN machine_id TEXT;",
+                "ALTER TABLE clearance_records ADD COLUMN expires_at TEXT;",
+                "ALTER TABLE clearance_records ADD COLUMN invalidated_at TEXT;",
+                "ALTER TABLE clearance_records ADD COLUMN invalidation_reason TEXT;",
+                "ALTER TABLE clearance_records ADD COLUMN reopened_at TEXT;",
+                "ALTER TABLE clearance_records ADD COLUMN reopened_by TEXT;",
+                "ALTER TABLE pnr_sessions ADD COLUMN verification_status TEXT DEFAULT 'DEMO';",
+            ]
+            for mig in clearance_migrations:
+                try:
+                    cur.execute(mig)
+                except Exception:
+                    pass
             conn.commit()
             _seed_demo_pnr_tickets(conn)
     except Exception as exc:
@@ -911,8 +988,11 @@ def save_clearance_record(record: Dict[str, Any]) -> int:
                 block_id, section_id, track_id, work_type, allocated_window,
                 start_min, end_min, duration_minutes, current_state,
                 created_by, created_at, updated_at, approved_at, rejected_at,
-                cancelled_at, ai_recommendation_note, details_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                cancelled_at, ai_recommendation_note, details_json,
+                ohe_permit_id, ohe_isolation_confirmed, signaling_acknowledged,
+                tsr_id, machine_id, expires_at, invalidated_at,
+                invalidation_reason, reopened_at, reopened_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(block_id) DO UPDATE SET
                 current_state=excluded.current_state,
                 allocated_window=excluded.allocated_window,
@@ -924,12 +1004,32 @@ def save_clearance_record(record: Dict[str, Any]) -> int:
                 rejected_at=excluded.rejected_at,
                 cancelled_at=excluded.cancelled_at,
                 ai_recommendation_note=excluded.ai_recommendation_note,
-                details_json=excluded.details_json
+                details_json=excluded.details_json,
+                ohe_permit_id=excluded.ohe_permit_id,
+                ohe_isolation_confirmed=excluded.ohe_isolation_confirmed,
+                signaling_acknowledged=excluded.signaling_acknowledged,
+                tsr_id=excluded.tsr_id,
+                machine_id=excluded.machine_id,
+                expires_at=excluded.expires_at,
+                invalidated_at=excluded.invalidated_at,
+                invalidation_reason=excluded.invalidation_reason,
+                reopened_at=excluded.reopened_at,
+                reopened_by=excluded.reopened_by
         """, (
             block_id, section_id, track_id, work_type, allocated_window,
             start_min, end_min, duration_minutes, current_state,
             created_by, created_at, updated_at, approved_at, rejected_at,
-            cancelled_at, ai_recommendation_note, details_json
+            cancelled_at, ai_recommendation_note, details_json,
+            record.get("ohe_permit_id"),
+            1 if record.get("ohe_isolation_confirmed") else 0,
+            1 if record.get("signaling_acknowledged") else 0,
+            record.get("tsr_id"),
+            record.get("machine_id"),
+            record.get("expires_at"),
+            record.get("invalidated_at"),
+            record.get("invalidation_reason"),
+            record.get("reopened_at"),
+            record.get("reopened_by"),
         ))
         conn.commit()
         return int(cur.lastrowid or 1)
@@ -944,13 +1044,18 @@ def get_clearance_record(block_id: str) -> Optional[Dict[str, Any]]:
             SELECT id, block_id, section_id, track_id, work_type, allocated_window,
                    start_min, end_min, duration_minutes, current_state,
                    created_by, created_at, updated_at, approved_at, rejected_at,
-                   cancelled_at, ai_recommendation_note, details_json
+                   cancelled_at, ai_recommendation_note, details_json,
+                   ohe_permit_id, ohe_isolation_confirmed, signaling_acknowledged,
+                   tsr_id, machine_id, expires_at, invalidated_at,
+                   invalidation_reason, reopened_at, reopened_by
             FROM clearance_records WHERE block_id = ? LIMIT 1
         """, (block_id,))
         row = cur.fetchone()
         if not row:
             return None
         res = dict(row)
+        res["ohe_isolation_confirmed"] = bool(res.get("ohe_isolation_confirmed"))
+        res["signaling_acknowledged"] = bool(res.get("signaling_acknowledged"))
         res["history"] = get_approval_history(block_id)
         return res
 
@@ -964,13 +1069,222 @@ def list_clearance_records() -> List[Dict[str, Any]]:
             SELECT id, block_id, section_id, track_id, work_type, allocated_window,
                    start_min, end_min, duration_minutes, current_state,
                    created_by, created_at, updated_at, approved_at, rejected_at,
-                   cancelled_at, ai_recommendation_note
+                   cancelled_at, ai_recommendation_note,
+                   ohe_permit_id, ohe_isolation_confirmed, signaling_acknowledged,
+                   tsr_id, machine_id, expires_at, invalidated_at,
+                   invalidation_reason, reopened_at, reopened_by
             FROM clearance_records ORDER BY updated_at DESC
         """, ())
         records = [dict(r) for r in cur.fetchall()]
         for rec in records:
+            rec["ohe_isolation_confirmed"] = bool(rec.get("ohe_isolation_confirmed"))
+            rec["signaling_acknowledged"] = bool(rec.get("signaling_acknowledged"))
             rec["history"] = get_approval_history(rec["block_id"])
         return records
+
+
+# ---------------------------------------------------------
+# OHE Traction Permit Persistence
+# ---------------------------------------------------------
+
+def save_ohe_permit(permit: Dict[str, Any]) -> str:
+    """Upsert OHE power block isolation permit record."""
+    _init_sqlite_tables()
+    permit_id = str(permit["permit_id"])
+    discharge_locs = json.dumps(permit.get("discharge_rod_locations", []))
+    with _get_sqlite_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO ohe_permits (
+                permit_id, block_id, electrical_section_id, state,
+                tpc_officer_id, power_block_permit_no, discharge_rod_locations,
+                requested_at, confirmed_at, permit_issued_at,
+                work_completed_at, restored_at, remarks
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(permit_id) DO UPDATE SET
+                state=excluded.state,
+                tpc_officer_id=excluded.tpc_officer_id,
+                power_block_permit_no=excluded.power_block_permit_no,
+                discharge_rod_locations=excluded.discharge_rod_locations,
+                requested_at=excluded.requested_at,
+                confirmed_at=excluded.confirmed_at,
+                permit_issued_at=excluded.permit_issued_at,
+                work_completed_at=excluded.work_completed_at,
+                restored_at=excluded.restored_at,
+                remarks=excluded.remarks
+        """, (
+            permit_id,
+            permit.get("block_id", ""),
+            permit.get("electrical_section_id", "OHE-DEFAULT"),
+            str(permit.get("state", "NOT_REQUESTED")),
+            permit.get("tpc_officer_id"),
+            permit.get("power_block_permit_no"),
+            discharge_locs,
+            permit.get("requested_at"),
+            permit.get("confirmed_at"),
+            permit.get("permit_issued_at"),
+            permit.get("work_completed_at"),
+            permit.get("restored_at"),
+            permit.get("remarks"),
+        ))
+        conn.commit()
+    return permit_id
+
+
+def get_ohe_permit(permit_id: str) -> Optional[Dict[str, Any]]:
+    """Retrieve OHE permit by ID."""
+    _init_sqlite_tables()
+    with _get_sqlite_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM ohe_permits WHERE permit_id = ? LIMIT 1", (permit_id,))
+        row = cur.fetchone()
+        if not row:
+            return None
+        d = dict(row)
+        try:
+            d["discharge_rod_locations"] = json.loads(d.get("discharge_rod_locations") or "[]")
+        except Exception:
+            d["discharge_rod_locations"] = []
+        return d
+
+
+def get_ohe_permit_by_block(block_id: str) -> Optional[Dict[str, Any]]:
+    """Retrieve OHE permit associated with a block."""
+    _init_sqlite_tables()
+    with _get_sqlite_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM ohe_permits WHERE block_id = ? ORDER BY requested_at DESC LIMIT 1", (block_id,))
+        row = cur.fetchone()
+        if not row:
+            return None
+        d = dict(row)
+        try:
+            d["discharge_rod_locations"] = json.loads(d.get("discharge_rod_locations") or "[]")
+        except Exception:
+            d["discharge_rod_locations"] = []
+        return d
+
+
+# ---------------------------------------------------------
+# Temporary Speed Restriction (TSR) Persistence
+# ---------------------------------------------------------
+
+def save_tsr_record(tsr: Dict[str, Any]) -> str:
+    """Upsert TSR record."""
+    _init_sqlite_tables()
+    tsr_id = str(tsr["tsr_id"])
+    staged_json = json.dumps(tsr.get("staged_recovery_schedule", []))
+    with _get_sqlite_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO tsr_records (
+                tsr_id, block_id, section_id, track_id, start_km, end_km,
+                max_speed_kmph, normal_speed_kmph, effective_from_iso,
+                effective_until_iso, reason, issued_by, status,
+                staged_recovery_json, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(tsr_id) DO UPDATE SET
+                max_speed_kmph=excluded.max_speed_kmph,
+                effective_until_iso=excluded.effective_until_iso,
+                status=excluded.status,
+                staged_recovery_json=excluded.staged_recovery_json
+        """, (
+            tsr_id,
+            tsr.get("block_id"),
+            tsr.get("section_id", "KNP-PRYJ-SEC-B"),
+            tsr.get("track_id", "KNP-PRYJ-DN-MAIN"),
+            float(tsr.get("start_km", 0.0)),
+            float(tsr.get("end_km", 0.0)),
+            float(tsr.get("max_speed_kmph", 30.0)),
+            float(tsr.get("normal_speed_kmph", 130.0)),
+            tsr.get("effective_from_iso", ""),
+            tsr.get("effective_until_iso", ""),
+            tsr.get("reason", "Post-maintenance speed restriction"),
+            tsr.get("issued_by", "SYSTEM"),
+            tsr.get("status", "ACTIVE"),
+            staged_json,
+            tsr.get("created_at", time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())),
+        ))
+        conn.commit()
+    return tsr_id
+
+
+def get_tsr_record(tsr_id: str) -> Optional[Dict[str, Any]]:
+    """Retrieve TSR record by ID."""
+    _init_sqlite_tables()
+    with _get_sqlite_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM tsr_records WHERE tsr_id = ? LIMIT 1", (tsr_id,))
+        row = cur.fetchone()
+        if not row:
+            return None
+        d = dict(row)
+        try:
+            d["staged_recovery_schedule"] = json.loads(d.get("staged_recovery_json") or "[]")
+        except Exception:
+            d["staged_recovery_schedule"] = []
+        return d
+
+
+def list_active_tsrs(section_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    """List currently active TSR records."""
+    _init_sqlite_tables()
+    with _get_sqlite_conn() as conn:
+        cur = conn.cursor()
+        if section_id:
+            cur.execute("SELECT * FROM tsr_records WHERE section_id = ? AND status = 'ACTIVE'", (section_id,))
+        else:
+            cur.execute("SELECT * FROM tsr_records WHERE status = 'ACTIVE'")
+        rows = [dict(r) for r in cur.fetchall()]
+        for r in rows:
+            try:
+                r["staged_recovery_schedule"] = json.loads(r.get("staged_recovery_json") or "[]")
+            except Exception:
+                r["staged_recovery_schedule"] = []
+        return rows
+
+
+# ---------------------------------------------------------
+# Committed Maintenance Blocks (TMS Audit) Persistence
+# ---------------------------------------------------------
+
+def save_committed_block(record: Dict[str, Any]) -> str:
+    """Persist an officially committed maintenance block transaction."""
+    _init_sqlite_tables()
+    txn_id = str(record["transaction_id"])
+    with _get_sqlite_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO committed_blocks (
+                transaction_id, block_id, section_id, start_time, end_time,
+                work_type, committed_at, caution_board_notice, committed_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            txn_id,
+            record["block_id"],
+            record["section_id"],
+            record["start_time"],
+            record["end_time"],
+            record.get("work_type", "Track Maintenance"),
+            record["committed_at"],
+            record.get("caution_board_notice", ""),
+            record.get("committed_by", "SYSTEM"),
+        ))
+        conn.commit()
+    return txn_id
+
+
+def list_committed_blocks_db(limit: int = 50) -> List[Dict[str, Any]]:
+    """Retrieve committed maintenance blocks from persistent database."""
+    _init_sqlite_tables()
+    with _get_sqlite_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT transaction_id, block_id, section_id, start_time, end_time,
+                   work_type, committed_at, caution_board_notice
+            FROM committed_blocks ORDER BY id DESC LIMIT ?
+        """, (limit,))
+        return [dict(r) for r in cur.fetchall()]
 
 
 def add_approval_history(item: Dict[str, Any]) -> int:

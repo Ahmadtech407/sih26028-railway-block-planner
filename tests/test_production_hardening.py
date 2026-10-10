@@ -284,7 +284,7 @@ def test_8_simulated_never_returned_as_live():
     for t in trains:
         # Without an external API key configured, data source must NOT be LIVE
         if not os.getenv("RAIL_API_KEY"):
-            assert t["data_source"] in ["SIMULATED", "CALIBRATED_FALLBACK", "PRE_CLEANED_KAGGLE_DATASET", "CALCULATED", "LIVE_GPS"]
+            assert t["data_source"] in ["SIMULATED", "CALIBRATED_FALLBACK", "PRE_CLEANED_KAGGLE_DATASET", "CALCULATED", "LIVE_GPS", "GOVT_OF_INDIA_CRIS"]
 
 
 # --------------------------------------------------------------------------

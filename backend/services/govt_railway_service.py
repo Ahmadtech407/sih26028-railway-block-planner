@@ -111,14 +111,20 @@ def get_feed_status() -> Dict[str, Any]:
     )
     return {
         "configured": is_govt_feed_configured(),
-        "status": "CONNECTED" if has_key else "OFFLINE_CALIBRATED",
+        "status": "CONNECTED" if has_key else "LIVE_DATA_UNAVAILABLE",
         "provider": prov,
         "api_url": _GOVT_CONFIG.get("api_url") or default_url,
         "last_sync_time": _GOVT_CONFIG.get("last_sync_time"),
         "sync_count": _GOVT_CONFIG.get("sync_count", 0),
         "cached_trains_count": len(_LIVE_RUNNING_CACHE),
         "last_error": _GOVT_CONFIG.get("last_error"),
-        "data_mode": "LIVE_FEED" if has_key else "PRE_CLEANED_KAGGLE_DATASET",
+        "data_mode": "LIVE_FEED" if has_key else "REFERENCE_SAMPLE_DATASET",
+        "live_access_authorized": has_key,
+        "provenance_statement": (
+            "Live RTIS/CRIS feed active."
+            if has_key
+            else "Official live railway API (CRIS/COA/NTES) is NOT CONNECTED. Operating in calibrated offline reference mode."
+        ),
     }
 
 
