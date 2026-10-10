@@ -27,8 +27,22 @@ def render_trains_page() -> None:
     """Render the train discovery and search page."""
     render_app_header()
 
-    st.markdown('<div class="rt-card">', unsafe_allow_html=True)
-    st.markdown('<div class="rt-card-title">🔍 Search Trains Across Corridors</div>', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div style="background: #101D37; border: 1px solid #2A3B57; border-radius: 10px; padding: 0.85rem 1rem; margin-bottom: 0.75rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <div>
+                    <span class="rt-card-title">🔍 Search Trains Across Corridors</span>
+                    <div style="font-size:0.8rem; color:#A9BAD3; margin-top:2px;">
+                        Explore schedules, arrival/departure timings, and live train run frequencies.
+                    </div>
+                </div>
+                <span class="rt-badge rt-badge-reference">TIMETABLE DIRECTORY</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     c1, c_swap, c2, c3 = st.columns([4, 1, 4, 3])
 
@@ -68,8 +82,6 @@ def render_trains_page() -> None:
         key="trains_text_filter",
     )
 
-    st.markdown('</div>', unsafe_allow_html=True)
-
     # Fetch available trains from backend/passenger services
     from passenger_app import fetch_sections, fetch_trains
 
@@ -101,7 +113,7 @@ def render_trains_page() -> None:
     st.markdown(
         f"""
         <div style="display: flex; justify-content: space-between; align-items: baseline; margin: 1.25rem 0 0.75rem 0;">
-            <div style="font-size: 1.1rem; font-weight: 700; color: #0F172A;">
+            <div style="font-size: 1.1rem; font-weight: 700; color: #F1F5F9;">
                 Available Trains ({len(matched_trains)})
             </div>
             <div>

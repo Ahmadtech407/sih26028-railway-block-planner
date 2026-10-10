@@ -26,7 +26,19 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-BACKEND_URL = os.environ.get("BACKEND_URL", "http://127.0.0.1:8000")
+def resolve_backend_url() -> str:
+    """Resolve backend URL with intelligent Render deployment detection."""
+    url = os.environ.get("BACKEND_URL", "").strip()
+    if not url:
+        if os.environ.get("RENDER") or os.environ.get("PORT"):
+            return "https://sih26028-railway-backend.onrender.com"
+        return "http://127.0.0.1:8000"
+    if (url.rstrip("/").endswith("127.0.0.1:8000") or url.rstrip("/").endswith("localhost:8000")) and (os.environ.get("RENDER") or os.environ.get("PORT")):
+        return "https://sih26028-railway-backend.onrender.com"
+    return url.rstrip("/")
+
+
+BACKEND_URL = resolve_backend_url()
 
 # Custom Styling
 st.markdown("""
@@ -79,22 +91,36 @@ def check_backend_health() -> Tuple[bool, str]:
 
 
 def fetch_sections() -> List[Dict[str, Any]]:
-    """Calls GET /api/sections"""
+    """Calls GET /api/sections with direct in-memory fallback."""
     try:
         res = requests.get(f"{BACKEND_URL}/api/sections", timeout=3.0)
         if res.status_code == 200:
             return res.json()
-    except Exception as e:
-        st.sidebar.error(f"Error fetching sections: {e}")
+    except Exception:
+        pass
+    try:
+        from backend.services.section_service import get_all_sections
+        secs = get_all_sections()
+        if secs:
+            return [s.model_dump() for s in secs]
+    except Exception:
+        pass
     return []
 
 
 def fetch_section_details(section_id: str) -> Dict[str, Any]:
-    """Calls GET /api/sections/{id}"""
+    """Calls GET /api/sections/{id} with resilient fallback."""
     try:
         res = requests.get(f"{BACKEND_URL}/api/sections/{section_id}", timeout=3.0)
         if res.status_code == 200:
             return res.json()
+    except Exception:
+        pass
+    try:
+        from backend.services.section_service import get_section
+        s = get_section(section_id)
+        if s:
+            return s.model_dump()
     except Exception:
         pass
     return {
@@ -111,13 +137,20 @@ def fetch_section_details(section_id: str) -> Dict[str, Any]:
 
 
 def fetch_trains(section_id: str) -> List[Dict[str, Any]]:
-    """Calls GET /api/trains?section_id={section_id}"""
+    """Calls GET /api/trains?section_id={section_id} with direct fallback."""
     try:
         res = requests.get(f"{BACKEND_URL}/api/trains", params={"section_id": section_id}, timeout=3.0)
         if res.status_code == 200:
             return res.json()
-    except Exception as e:
-        st.sidebar.error(f"Error fetching trains: {e}")
+    except Exception:
+        pass
+    try:
+        from backend.services.train_service import get_trains_for_section
+        trains = get_trains_for_section(section_id)
+        if trains:
+            return [t.model_dump() for t in trains]
+    except Exception:
+        pass
     return []
 
 
@@ -558,8 +591,8 @@ def main():
     if backend_online:
         st.sidebar.markdown(f'<span class="status-badge-online">🟢 Backend Connected (v{backend_version})</span>', unsafe_allow_html=True)
     else:
-        st.sidebar.markdown(f'<span class="status-badge-offline">🔴 Backend Offline ({BACKEND_URL})</span>', unsafe_allow_html=True)
-        st.sidebar.warning("FastAPI backend is unreachable. Start it with `uvicorn backend.main:app --port 8000`.")
+        st.sidebar.markdown(f'<span class="status-badge-offline" style="background:#1E293B; color:#F59E0B; border:1px solid #334155;">🟡 Local Engine / Cloud Starting</span>', unsafe_allow_html=True)
+        st.sidebar.caption(f"Connecting to: `{BACKEND_URL}` · Operating on resilient local cache.")
 
     # Govt of India Live Feed Status in Sidebar
     try:

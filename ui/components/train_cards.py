@@ -38,42 +38,43 @@ def render_train_card(
         source=prov_source,
     )
 
-    card_html = f"""
-    <div class="rt-card">
-        <div class="rt-card-header">
-            <div>
-                <span style="font-size: 1.15rem; font-weight: 800; color: #0F172A;">🚆 {html.escape(tr_num)}</span>
-                <span style="font-size: 1.0rem; font-weight: 700; color: #1E40AF; margin-left: 6px;">{html.escape(tr_name)}</span>
-            </div>
-            <div>
-                {status_chip}
-                {badge_html}
-            </div>
+    import textwrap
+    card_html = textwrap.dedent(f"""
+<div class="rt-card">
+    <div class="rt-card-header">
+        <div>
+            <span style="font-size: 1.15rem; font-weight: 800; color: #F1F5F9;">🚆 {html.escape(tr_num)}</span>
+            <span style="font-size: 1.0rem; font-weight: 700; color: #38BDF8; margin-left: 6px;">{html.escape(tr_name)}</span>
         </div>
-
-        <div style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; margin: 0.75rem 0;">
-            <div>
-                <div style="font-size: 1.25rem; font-weight: 800; color: #0F172A;">{html.escape(dep_time)}</div>
-                <div style="font-size: 0.85rem; font-weight: 600; color: #334155;">{html.escape(str(from_stn))}</div>
-                <div style="font-size: 0.72rem; color: #64748B;">Platform {html.escape(str(train.get('platform_number', '1')))}</div>
-            </div>
-
-            <div style="text-align: center; min-width: 100px;">
-                <div style="font-size: 0.75rem; font-weight: 600; color: #64748B;">⚡ {speed} km/h</div>
-                <div style="height: 2px; background: #CBD5E1; margin: 4px 0; position: relative;">
-                    <div style="position: absolute; right: 0; top: -3px; width: 6px; height: 6px; border-radius: 50%; background: #1E40AF;"></div>
-                </div>
-                <div style="font-size: 0.7rem; color: #94A3B8;">Section Run</div>
-            </div>
-
-            <div style="text-align: right;">
-                <div style="font-size: 1.25rem; font-weight: 800; color: #0F172A;">{html.escape(arr_time)}</div>
-                <div style="font-size: 0.85rem; font-weight: 600; color: #334155;">{html.escape(str(to_stn))}</div>
-                <div style="font-size: 0.72rem; color: #64748B;">Destination</div>
-            </div>
+        <div>
+            {status_chip}
+            {badge_html}
         </div>
     </div>
-    """
+
+    <div style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; margin: 0.75rem 0;">
+        <div>
+            <div style="font-size: 1.25rem; font-weight: 800; color: #F1F5F9;">{html.escape(dep_time)}</div>
+            <div style="font-size: 0.85rem; font-weight: 600; color: #A9BAD3;">{html.escape(str(from_stn))}</div>
+            <div style="font-size: 0.72rem; color: #64748B;">Platform {html.escape(str(train.get('platform_number', '1')))}</div>
+        </div>
+
+        <div style="text-align: center; min-width: 100px;">
+            <div style="font-size: 0.75rem; font-weight: 600; color: #38BDF8;">⚡ {speed} km/h</div>
+            <div style="height: 2px; background: #2A3B57; margin: 4px 0; position: relative;">
+                <div style="position: absolute; right: 0; top: -3px; width: 6px; height: 6px; border-radius: 50%; background: #38BDF8;"></div>
+            </div>
+            <div style="font-size: 0.7rem; color: #A9BAD3;">Section Run</div>
+        </div>
+
+        <div style="text-align: right;">
+            <div style="font-size: 1.25rem; font-weight: 800; color: #F1F5F9;">{html.escape(arr_time)}</div>
+            <div style="font-size: 0.85rem; font-weight: 600; color: #A9BAD3;">{html.escape(str(to_stn))}</div>
+            <div style="font-size: 0.72rem; color: #64748B;">Destination</div>
+        </div>
+    </div>
+</div>
+""").strip()
     st.markdown(card_html, unsafe_allow_html=True)
 
     btn_col1, btn_col2 = st.columns(2)

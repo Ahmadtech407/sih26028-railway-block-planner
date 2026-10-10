@@ -54,8 +54,7 @@ def render_find_best_train_page() -> None:
 
     # 1. Search Query & Parameters Form
     with st.container():
-        st.markdown('<div class="rt-card">', unsafe_allow_html=True)
-        st.markdown('<div class="rt-card-title">🔍 Specify Your Journey Constraints</div>', unsafe_allow_html=True)
+        st.markdown('<div class="rt-card-title" style="margin-bottom: 0.75rem;">🔍 Specify Your Journey Constraints</div>', unsafe_allow_html=True)
 
         with st.form(key="find_best_train_form"):
             # Natural Language Input
@@ -66,7 +65,7 @@ def render_find_best_train_page() -> None:
                 help="Type your journey request in natural language. The assistant parses stations, deadlines, and dates automatically.",
             )
 
-            st.markdown('<div style="font-size: 0.85rem; font-weight: 600; color: #475569; margin: 0.75rem 0 0.25rem 0;">Or Fine-Tune Structured Constraints:</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-size: 0.85rem; font-weight: 600; color: #A9BAD3; margin: 0.75rem 0 0.25rem 0;">Or Fine-Tune Structured Constraints:</div>', unsafe_allow_html=True)
 
             scol1, scol_swap, scol2, scol3 = st.columns([4, 1, 4, 3])
 
@@ -118,8 +117,6 @@ def render_find_best_train_page() -> None:
                 submit_search = st.form_submit_button("🚆 Find Best Recommended Trains", type="primary", use_container_width=True)
             with col_clear:
                 clear_search = st.form_submit_button("Clear", use_container_width=True)
-
-        st.markdown('</div>', unsafe_allow_html=True)
 
     if clear_search:
         st.session_state.pop("journey_assistant_result", None)
@@ -204,62 +201,63 @@ def render_find_best_train_page() -> None:
             assessment = result.get("assessment", "")
 
             # Highlight Card for Best Train
+            import textwrap
             st.markdown(
-                f"""
-                <div class="rt-card" style="border-left: 5px solid #059669; background: #FFFFFF;">
-                    <div class="rt-card-header">
-                        <div>
-                            <span style="background: #ECFDF5; color: #059669; font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 4px; border: 1px solid #A7F3D0;">
-                                ★ TOP RECOMMENDED TRAIN
-                            </span>
-                            <div style="font-size: 1.25rem; font-weight: 800; color: #0F172A; margin-top: 4px;">
-                                {html.escape(str(train_name))} ({html.escape(str(train_num))})
-                            </div>
-                            <div style="font-size: 0.8rem; color: #64748B;">
-                                Route: {html.escape(rec.get('from_station', 'Origin'))} → {html.escape(rec.get('to_station', 'Destination'))}
-                            </div>
-                        </div>
-                        <div>
-                            <span class="rt-badge rt-badge-predicted">ML CONFIDENCE 94%</span>
-                        </div>
-                    </div>
+                textwrap.dedent(f"""
+<div class="rt-card" style="border-left: 5px solid #10B981;">
+    <div class="rt-card-header">
+        <div>
+            <span style="background: rgba(16, 185, 129, 0.18); color: #34D399; font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 4px; border: 1px solid rgba(52, 211, 153, 0.4);">
+                ★ TOP RECOMMENDED TRAIN
+            </span>
+            <div style="font-size: 1.25rem; font-weight: 800; color: #F1F5F9; margin-top: 4px;">
+                {html.escape(str(train_name))} ({html.escape(str(train_num))})
+            </div>
+            <div style="font-size: 0.8rem; color: #A9BAD3;">
+                Route: {html.escape(rec.get('from_station', 'Origin'))} → {html.escape(rec.get('to_station', 'Destination'))}
+            </div>
+        </div>
+        <div>
+            <span class="rt-badge rt-badge-predicted">ML CONFIDENCE 94%</span>
+        </div>
+    </div>
 
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin: 1rem 0; padding: 0.85rem; background: #F8FAFC; border-radius: 8px;">
-                        <div>
-                            <div style="font-size: 0.72rem; color: #64748B; font-weight: 600;">SCHEDULED DEPARTURE</div>
-                            <div style="font-size: 1.1rem; font-weight: 800; color: #0F172A;">{html.escape(str(dep_time))}</div>
-                        </div>
-                        <div>
-                            <div style="font-size: 0.72rem; color: #64748B; font-weight: 600;">SCHEDULED ARRIVAL</div>
-                            <div style="font-size: 1.1rem; font-weight: 800; color: #0F172A;">{html.escape(str(arr_time))}</div>
-                        </div>
-                        <div>
-                            <div style="font-size: 0.72rem; color: #64748B; font-weight: 600;">ML DELAY BUFFER</div>
-                            <div style="font-size: 1.1rem; font-weight: 800; color: {'#DC2626' if delay_min > 30 else '#D97706' if delay_min > 10 else '#059669'};">
-                                +{delay_min} min
-                            </div>
-                        </div>
-                        <div>
-                            <div style="font-size: 0.72rem; color: #64748B; font-weight: 600;">EXPECTED ARRIVAL</div>
-                            <div style="font-size: 1.1rem; font-weight: 800; color: #1E40AF;">{html.escape(str(pred_arr))}</div>
-                        </div>
-                        {f'''
-                        <div>
-                            <div style="font-size: 0.72rem; color: #64748B; font-weight: 600;">YOUR DEADLINE</div>
-                            <div style="font-size: 1.1rem; font-weight: 800; color: #475569;">{html.escape(str(deadline_str))}</div>
-                        </div>
-                        <div>
-                            <div style="font-size: 0.72rem; color: #64748B; font-weight: 600;">ARRIVAL BUFFER</div>
-                            <div style="font-size: 1.1rem; font-weight: 800; color: #059669;">+{buffer_min} min</div>
-                        </div>
-                        ''' if buffer_min is not None else ''}
-                    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin: 1rem 0; padding: 0.85rem; background: #0B1730; border: 1px solid #2A3B57; border-radius: 8px;">
+        <div>
+            <div style="font-size: 0.72rem; color: #A9BAD3; font-weight: 600;">SCHEDULED DEPARTURE</div>
+            <div style="font-size: 1.1rem; font-weight: 800; color: #F1F5F9;">{html.escape(str(dep_time))}</div>
+        </div>
+        <div>
+            <div style="font-size: 0.72rem; color: #A9BAD3; font-weight: 600;">SCHEDULED ARRIVAL</div>
+            <div style="font-size: 1.1rem; font-weight: 800; color: #F1F5F9;">{html.escape(str(arr_time))}</div>
+        </div>
+        <div>
+            <div style="font-size: 0.72rem; color: #A9BAD3; font-weight: 600;">ML DELAY BUFFER</div>
+            <div style="font-size: 1.1rem; font-weight: 800; color: {'#EF4444' if delay_min > 30 else '#F59E0B' if delay_min > 10 else '#10B981'};">
+                +{delay_min} min
+            </div>
+        </div>
+        <div>
+            <div style="font-size: 0.72rem; color: #A9BAD3; font-weight: 600;">EXPECTED ARRIVAL</div>
+            <div style="font-size: 1.1rem; font-weight: 800; color: #38BDF8;">{html.escape(str(pred_arr))}</div>
+        </div>
+        {f'''
+        <div>
+            <div style="font-size: 0.72rem; color: #A9BAD3; font-weight: 600;">YOUR DEADLINE</div>
+            <div style="font-size: 1.1rem; font-weight: 800; color: #CBD5E1;">{html.escape(str(deadline_str))}</div>
+        </div>
+        <div>
+            <div style="font-size: 0.72rem; color: #A9BAD3; font-weight: 600;">ARRIVAL BUFFER</div>
+            <div style="font-size: 1.1rem; font-weight: 800; color: #10B981;">+{buffer_min} min</div>
+        </div>
+        ''' if buffer_min is not None else ''}
+    </div>
 
-                    <div style="padding: 0.75rem 0.85rem; background: #EFF6FF; border-left: 3px solid #1E40AF; border-radius: 4px; font-size: 0.82rem; color: #1E3A8A; line-height: 1.5;">
-                        <b>💡 Transparent Match Assessment:</b> {html.escape(str(assessment))}
-                    </div>
-                </div>
-                """,
+    <div style="padding: 0.75rem 0.85rem; background: rgba(56, 189, 248, 0.12); border-left: 3px solid #38BDF8; border-radius: 4px; font-size: 0.82rem; color: #38BDF8; line-height: 1.5;">
+        <b>💡 Transparent Match Assessment:</b> {html.escape(str(assessment))}
+    </div>
+</div>
+""").strip(),
                 unsafe_allow_html=True,
             )
 
@@ -279,7 +277,7 @@ def render_find_best_train_page() -> None:
             # Alternative Options (if any)
             alternatives = result.get("alternative_trains", [])
             if alternatives:
-                st.markdown('<div style="font-size: 1.05rem; font-weight: 700; color: #0F172A; margin: 1.5rem 0 0.5rem 0;">🔄 Alternative Available Services</div>', unsafe_allow_html=True)
+                st.markdown('<div style="font-size: 1.05rem; font-weight: 700; color: #F1F5F9; margin: 1.5rem 0 0.5rem 0;">🔄 Alternative Available Services</div>', unsafe_allow_html=True)
                 for alt in alternatives:
                     alt_num = alt.get("train_number", "")
                     alt_name = alt.get("train_name", "")
@@ -290,17 +288,17 @@ def render_find_best_train_page() -> None:
                     alt_reason = alt.get("reason", "Satisfies journey criteria.")
 
                     st.markdown(
-                        f"""
-                        <div class="rt-card" style="margin-bottom: 0.75rem; padding: 0.85rem 1rem;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-                                <div>
-                                    <div style="font-weight: 700; color: #0F172A;">{html.escape(str(alt_name))} ({html.escape(str(alt_num))})</div>
-                                    <div style="font-size: 0.78rem; color: #64748B;">Dep: <b>{html.escape(str(alt_dep))}</b> · Arr: <b>{html.escape(str(alt_arr))}</b> · ML Delay: +{alt_delay}m · Expected: <b>{html.escape(str(alt_pred))}</b></div>
-                                    <div style="font-size: 0.75rem; color: #475569; margin-top: 3px;"><i>{html.escape(str(alt_reason))}</i></div>
-                                </div>
-                            </div>
-                        </div>
-                        """,
+                        textwrap.dedent(f"""
+<div class="rt-card" style="margin-bottom: 0.75rem; padding: 0.85rem 1rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <div>
+            <div style="font-weight: 700; color: #F1F5F9;">{html.escape(str(alt_name))} ({html.escape(str(alt_num))})</div>
+            <div style="font-size: 0.78rem; color: #A9BAD3;">Dep: <b style="color:#F1F5F9;">{html.escape(str(alt_dep))}</b> · Arr: <b style="color:#F1F5F9;">{html.escape(str(alt_arr))}</b> · ML Delay: +{alt_delay}m · Expected: <b style="color:#38BDF8;">{html.escape(str(alt_pred))}</b></div>
+            <div style="font-size: 0.75rem; color: #CBD5E1; margin-top: 3px;"><i>{html.escape(str(alt_reason))}</i></div>
+        </div>
+    </div>
+</div>
+""").strip(),
                         unsafe_allow_html=True,
                     )
         else:
@@ -310,7 +308,7 @@ def render_find_best_train_page() -> None:
     # 3. Transparent Safety & Provenance Footer
     st.markdown(
         """
-        <div style="margin-top: 2rem; padding: 0.85rem 1rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 0.72rem; color: #64748B; line-height: 1.5;">
+        <div style="margin-top: 2rem; padding: 0.85rem 1rem; background: #0B1730; border: 1px solid #2A3B57; border-radius: 8px; font-size: 0.72rem; color: #A9BAD3; line-height: 1.5;">
             🔒 <b>Data Integrity Guarantee</b>: RailTrack never hallucinates train timings, fares, or berth availability. Schedules are validated directly against Indian Railways official timetable records. Delay estimates are generated via statistical machine-learning models trained on historical sectional running times.
         </div>
         """,

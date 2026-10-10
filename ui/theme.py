@@ -8,32 +8,34 @@ import streamlit as st
 
 # Color Palette Tokens
 THEME_TOKENS = {
-    "primary_navy": "#071530",
+    "primary_navy": "#071127",
     "railway_blue": "#1E40AF",
     "electric_cyan": "#0284C7",
-    "surface_white": "#FFFFFF",
-    "surface_card": "#FFFFFF",
-    "surface_muted": "#F1F5F9",
-    "text_dark": "#0F172A",
-    "text_muted": "#475569",
-    "text_light": "#94A3B8",
-    "border_light": "#E2E8F0",
-    "border_focus": "#2563EB",
-    "verified_green": "#059669",
-    "verified_bg": "#ECFDF5",
-    "warning_amber": "#D97706",
-    "warning_bg": "#FFFBEB",
-    "danger_red": "#DC2626",
-    "danger_bg": "#FEF2F2",
-    "info_blue": "#2563EB",
-    "info_bg": "#EFF6FF",
+    "surface_canvas": "#071127",
+    "surface_card": "#101D37",
+    "surface_elevated": "#162640",
+    "surface_muted": "#0B1730",
+    "text_primary": "#F1F5F9",
+    "text_secondary": "#A9BAD3",
+    "text_muted": "#64748B",
+    "border_card": "#2A3B57",
+    "border_subtle": "#1E2E4A",
+    "border_focus": "#35B9F2",
+    "verified_green": "#10B981",
+    "verified_bg": "#064E3B",
+    "warning_amber": "#F59E0B",
+    "warning_bg": "#78350F",
+    "danger_red": "#EF4444",
+    "danger_bg": "#7F1D1D",
+    "info_blue": "#38BDF8",
+    "info_bg": "#0C4A6E",
 }
 
 
 CUSTOM_CSS = """
 <style>
 /* ==============================================================
-   RAILTRACK MODERN RAILWAY DESIGN SYSTEM
+   RAILTRACK MODERN RAILWAY DARK DESIGN SYSTEM
    ============================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
@@ -51,23 +53,33 @@ html, body, [class*="css"] {
     padding-right: 1.5rem !important;
 }
 
+/* Global High-Contrast Headings */
+h1, h2, h3, h4, h5, h6,
+[data-testid="stMarkdownContainer"] h1,
+[data-testid="stMarkdownContainer"] h2,
+[data-testid="stMarkdownContainer"] h3 {
+    color: #F1F5F9 !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.01em !important;
+}
+
 /* Brand Banner & Header */
 .rt-brand-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 0.85rem 1.25rem;
-    background: linear-gradient(135deg, #071530 0%, #0F275A 100%);
+    background: linear-gradient(135deg, #071127 0%, #101D37 100%);
     border-radius: 12px;
     margin-bottom: 1.25rem;
-    box-shadow: 0 4px 14px rgba(7, 21, 48, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+    border: 1px solid #2A3B57;
 }
 
 .rt-brand-title {
     font-size: 1.35rem;
     font-weight: 800;
-    color: #FFFFFF !important;
+    color: #F1F5F9 !important;
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -76,30 +88,31 @@ html, body, [class*="css"] {
 
 .rt-brand-subtitle {
     font-size: 0.8rem;
-    color: #94A3B8;
+    color: #A9BAD3;
     font-weight: 500;
 }
 
 /* Reusable Content Cards */
 .rt-card {
-    background: #FFFFFF;
-    border: 1px solid #E2E8F0;
+    background: #101D37;
+    border: 1px solid #2A3B57;
     border-radius: 12px;
     padding: 1.25rem;
     margin-bottom: 1rem;
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    color: #F1F5F9;
     transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .rt-card:hover {
-    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
 }
 
 .rt-card-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 1px solid #F1F5F9;
+    border-bottom: 1px solid #1E2E4A;
     padding-bottom: 0.75rem;
     margin-bottom: 0.85rem;
 }
@@ -107,7 +120,7 @@ html, body, [class*="css"] {
 .rt-card-title {
     font-size: 1.05rem;
     font-weight: 700;
-    color: #0F172A;
+    color: #F1F5F9;
     display: flex;
     align-items: center;
     gap: 0.4rem;
@@ -127,39 +140,45 @@ html, body, [class*="css"] {
 }
 
 .rt-badge-live {
-    background-color: #ECFDF5;
-    color: #059669;
-    border: 1px solid #A7F3D0;
+    background-color: rgba(16, 185, 129, 0.18);
+    color: #34D399;
+    border: 1px solid rgba(52, 211, 153, 0.4);
 }
 
 .rt-badge-historical {
-    background-color: #EFF6FF;
-    color: #1D4ED8;
-    border: 1px solid #BFDBFE;
+    background-color: rgba(56, 189, 248, 0.18);
+    color: #38BDF8;
+    border: 1px solid rgba(56, 189, 248, 0.4);
 }
 
 .rt-badge-reference {
-    background-color: #F8FAFC;
-    color: #475569;
-    border: 1px solid #CBD5E1;
+    background-color: rgba(148, 163, 184, 0.15);
+    color: #CBD5E1;
+    border: 1px solid rgba(148, 163, 184, 0.35);
 }
 
 .rt-badge-predicted {
-    background-color: #F5F3FF;
-    color: #6D28D9;
-    border: 1px solid #DDD6FE;
+    background-color: rgba(168, 85, 247, 0.18);
+    color: #C084FC;
+    border: 1px solid rgba(168, 85, 247, 0.4);
 }
 
 .rt-badge-demo {
-    background-color: #FFFBEB;
-    color: #B45309;
-    border: 1px solid #FDE68A;
+    background-color: rgba(245, 158, 11, 0.18);
+    color: #FBBF24;
+    border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.rt-badge-caution {
+    background-color: rgba(245, 158, 11, 0.18);
+    color: #FBBF24;
+    border: 1px solid rgba(245, 158, 11, 0.4);
 }
 
 .rt-badge-unavailable {
-    background-color: #FEF2F2;
-    color: #B91C1C;
-    border: 1px solid #FECACA;
+    background-color: rgba(239, 68, 68, 0.18);
+    color: #F87171;
+    border: 1px solid rgba(239, 68, 68, 0.4);
 }
 
 /* Metric Pill */
@@ -167,8 +186,8 @@ html, body, [class*="css"] {
     display: inline-flex;
     flex-direction: column;
     padding: 0.5rem 0.85rem;
-    background: #F8FAFC;
-    border: 1px solid #E2E8F0;
+    background: #0B1730;
+    border: 1px solid #2A3B57;
     border-radius: 8px;
     min-width: 100px;
 }
@@ -176,7 +195,7 @@ html, body, [class*="css"] {
 .rt-metric-label {
     font-size: 0.72rem;
     font-weight: 600;
-    color: #64748B;
+    color: #A9BAD3;
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
@@ -184,26 +203,47 @@ html, body, [class*="css"] {
 .rt-metric-val {
     font-size: 1.1rem;
     font-weight: 800;
-    color: #0F172A;
+    color: #F1F5F9;
     font-family: 'JetBrains Mono', monospace;
+}
+
+/* Streamlit Native Metric Overrides */
+[data-testid="stMetricValue"] {
+    color: #F1F5F9 !important;
+    font-weight: 800 !important;
+}
+
+[data-testid="stMetricLabel"] {
+    color: #A9BAD3 !important;
+    font-weight: 600 !important;
+}
+
+/* Streamlit Sidebar Overrides */
+[data-testid="stSidebar"] {
+    background-color: #071127 !important;
+    border-right: 1px solid #2A3B57 !important;
+}
+
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
+    color: #F1F5F9 !important;
 }
 
 /* Quick Service Cards */
 .rt-service-tile {
-    background: #FFFFFF;
-    border: 1px solid #E2E8F0;
+    background: #101D37;
+    border: 1px solid #2A3B57;
     border-radius: 12px;
     padding: 1.25rem 1rem;
     text-align: center;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     cursor: pointer;
     transition: all 0.2s ease;
     height: 100%;
 }
 
 .rt-service-tile:hover {
-    border-color: #1E40AF;
-    box-shadow: 0 6px 16px rgba(30, 64, 175, 0.1);
+    border-color: #38BDF8;
+    box-shadow: 0 6px 18px rgba(56, 189, 248, 0.25);
     transform: translateY(-2px);
 }
 
@@ -215,13 +255,13 @@ html, body, [class*="css"] {
 .rt-service-name {
     font-weight: 700;
     font-size: 0.95rem;
-    color: #0F172A;
+    color: #F1F5F9;
     margin-bottom: 0.25rem;
 }
 
 .rt-service-desc {
     font-size: 0.75rem;
-    color: #64748B;
+    color: #A9BAD3;
 }
 
 /* Station Progression Step Timeline */
@@ -242,38 +282,39 @@ html, body, [class*="css"] {
     top: 24px;
     bottom: 0;
     width: 2px;
-    background: #CBD5E1;
+    background: #2A3B57;
 }
 
 .rt-timeline-step.active .rt-timeline-line {
-    background: #1E40AF;
+    background: #38BDF8;
 }
 
 .rt-timeline-dot {
     width: 30px;
     height: 30px;
     border-radius: 50%;
-    background: #FFFFFF;
-    border: 3px solid #94A3B8;
+    background: #0B1730;
+    border: 3px solid #64748B;
     display: flex;
     align-items: center;
     justify-content: center;
     margin-right: 1rem;
     z-index: 2;
     flex-shrink: 0;
+    color: #F1F5F9;
 }
 
 .rt-timeline-step.active .rt-timeline-dot {
-    border-color: #1E40AF;
-    background: #EFF6FF;
-    color: #1E40AF;
-    box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.15);
+    border-color: #38BDF8;
+    background: #101D37;
+    color: #38BDF8;
+    box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.25);
 }
 
 .rt-timeline-step.passed .rt-timeline-dot {
-    border-color: #059669;
-    background: #059669;
-    color: #FFFFFF;
+    border-color: #10B981;
+    background: #064E3B;
+    color: #34D399;
 }
 
 /* Horizontal Train Formation */
@@ -283,8 +324,8 @@ html, body, [class*="css"] {
     overflow-x: auto;
     padding: 1.25rem 0.5rem;
     gap: 6px;
-    background: #F8FAFC;
-    border: 1px solid #E2E8F0;
+    background: #0B1730;
+    border: 1px solid #2A3B57;
     border-radius: 10px;
     margin: 1rem 0;
     scrollbar-width: thin;
@@ -295,44 +336,44 @@ html, body, [class*="css"] {
     width: 72px;
     height: 64px;
     border-radius: 6px;
-    background: #FFFFFF;
-    border: 2px solid #CBD5E1;
+    background: #162640;
+    border: 2px solid #2A3B57;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     font-weight: 700;
     font-size: 0.8rem;
-    color: #0F172A;
+    color: #F1F5F9;
     position: relative;
     cursor: pointer;
     transition: all 0.15s ease;
 }
 
 .rt-rake-coach.selected {
-    border-color: #1E40AF;
-    background: #EFF6FF;
-    color: #1E40AF;
-    box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.2);
+    border-color: #38BDF8;
+    background: rgba(14, 165, 233, 0.25);
+    color: #38BDF8;
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.35);
     transform: translateY(-2px);
 }
 
 .rt-rake-coach.loco {
-    background: #1E293B;
-    color: #F8FAFC;
-    border-color: #0F172A;
+    background: #071127;
+    color: #F1F5F9;
+    border-color: #38BDF8;
     width: 82px;
 }
 
 .rt-rake-class {
     font-size: 0.65rem;
-    color: #64748B;
+    color: #A9BAD3;
     font-weight: 500;
 }
 
 /* Accessibility & High Contrast Focus */
 button:focus-visible, input:focus-visible, select:focus-visible {
-    outline: 2px solid #2563EB !important;
+    outline: 2px solid #38BDF8 !important;
     outline-offset: 2px !important;
 }
 

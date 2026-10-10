@@ -67,10 +67,9 @@ def render_coach_position_page() -> None:
     # TAB 1: PNR Verification Workflow (Mandatory Security & Privacy)
     # ==============================================================
     with tab_pnr:
-        st.markdown('<div class="rt-card">', unsafe_allow_html=True)
-        st.markdown('<div class="rt-card-title">1. Enter 10-Digit PNR for Coach & Seat Verification</div>', unsafe_allow_html=True)
+        st.markdown('<div class="rt-card-title" style="margin-bottom: 0.25rem;">1. Enter 10-Digit PNR for Coach & Seat Verification</div>', unsafe_allow_html=True)
         st.markdown(
-            '<div style="font-size: 0.8rem; color: #64748B; margin-bottom: 12px;">'
+            '<div style="font-size: 0.8rem; color: #A9BAD3; margin-bottom: 12px;">'
             'Passenger coach allocations and berth numbers are protected records. Enter your 10-digit PNR to retrieve authorized coach positioning.'
             '</div>',
             unsafe_allow_html=True,
@@ -109,8 +108,6 @@ def render_coach_position_page() -> None:
                         st.session_state.pop("verified_ticket", None)
                         st.error(f"❌ PNR Verification Failed: {verification_res.get('error', 'PNR not found or invalid.')}")
 
-        st.markdown('</div>', unsafe_allow_html=True)
-
         # Retrieve verified ticket from session state
         active_ticket = st.session_state.get("verified_ticket")
 
@@ -130,46 +127,47 @@ def render_coach_position_page() -> None:
             status = bkg.get("status", "CNF")
 
             # 4. Display the train, journey date, boarding station, coach number, and seat/berth details
+            import textwrap
             st.markdown(
-                f"""
-                <div class="rt-card" style="border-left: 5px solid #059669; margin-top: 1rem;">
-                    <div class="rt-card-header">
-                        <div>
-                            <span style="background: #ECFDF5; color: #059669; font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 4px; border: 1px solid #A7F3D0;">
-                                ✓ VERIFIED PNR ALLOCATION
-                            </span>
-                            <div style="font-size: 1.25rem; font-weight: 800; color: #0F172A; margin-top: 4px;">
-                                {html.escape(train_name)} ({html.escape(train_num)})
-                            </div>
-                            <div style="font-size: 0.8rem; color: #64748B;">
-                                Passenger: <b>{html.escape(psg.get('name', 'Passenger'))}</b> · Date: <b>{html.escape(str(travel_date))}</b>
-                            </div>
-                        </div>
-                        <div>
-                            <span class="rt-badge rt-badge-live">STATUS: {html.escape(str(status))}</span>
-                        </div>
-                    </div>
+                textwrap.dedent(f"""
+<div class="rt-card" style="border-left: 5px solid #10B981; margin-top: 1rem;">
+    <div class="rt-card-header">
+        <div>
+            <span style="background: rgba(16, 185, 129, 0.18); color: #34D399; font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 4px; border: 1px solid rgba(52, 211, 153, 0.4);">
+                ✓ VERIFIED PNR ALLOCATION
+            </span>
+            <div style="font-size: 1.25rem; font-weight: 800; color: #F1F5F9; margin-top: 4px;">
+                {html.escape(train_name)} ({html.escape(train_num)})
+            </div>
+            <div style="font-size: 0.8rem; color: #A9BAD3;">
+                Passenger: <b>{html.escape(psg.get('name', 'Passenger'))}</b> · Date: <b>{html.escape(str(travel_date))}</b>
+            </div>
+        </div>
+        <div>
+            <span class="rt-badge rt-badge-live">STATUS: {html.escape(str(status))}</span>
+        </div>
+    </div>
 
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 1rem 0; padding: 0.85rem; background: #F8FAFC; border-radius: 8px;">
-                        <div>
-                            <div style="font-size: 0.72rem; color: #64748B; font-weight: 600;">BOARDING POINT</div>
-                            <div style="font-size: 1.05rem; font-weight: 800; color: #0F172A;">{html.escape(str(from_stn))}</div>
-                        </div>
-                        <div>
-                            <div style="font-size: 0.72rem; color: #64748B; font-weight: 600;">DESTINATION</div>
-                            <div style="font-size: 1.05rem; font-weight: 800; color: #0F172A;">{html.escape(str(to_stn))}</div>
-                        </div>
-                        <div>
-                            <div style="font-size: 0.72rem; color: #64748B; font-weight: 600;">ASSIGNED COACH</div>
-                            <div style="font-size: 1.15rem; font-weight: 800; color: #1E40AF;">{html.escape(coach_id)}</div>
-                        </div>
-                        <div>
-                            <div style="font-size: 0.72rem; color: #64748B; font-weight: 600;">ASSIGNED BERTH / SEAT</div>
-                            <div style="font-size: 1.15rem; font-weight: 800; color: #059669;">{html.escape(seat_num)} ({html.escape(berth_type)})</div>
-                        </div>
-                    </div>
-                </div>
-                """,
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 1rem 0; padding: 0.85rem; background: #0B1730; border: 1px solid #2A3B57; border-radius: 8px;">
+        <div>
+            <div style="font-size: 0.72rem; color: #A9BAD3; font-weight: 600;">BOARDING POINT</div>
+            <div style="font-size: 1.05rem; font-weight: 800; color: #F1F5F9;">{html.escape(str(from_stn))}</div>
+        </div>
+        <div>
+            <div style="font-size: 0.72rem; color: #A9BAD3; font-weight: 600;">DESTINATION</div>
+            <div style="font-size: 1.05rem; font-weight: 800; color: #F1F5F9;">{html.escape(str(to_stn))}</div>
+        </div>
+        <div>
+            <div style="font-size: 0.72rem; color: #A9BAD3; font-weight: 600;">ASSIGNED COACH</div>
+            <div style="font-size: 1.15rem; font-weight: 800; color: #38BDF8;">{html.escape(coach_id)}</div>
+        </div>
+        <div>
+            <div style="font-size: 0.72rem; color: #A9BAD3; font-weight: 600;">ASSIGNED BERTH / SEAT</div>
+            <div style="font-size: 1.15rem; font-weight: 800; color: #10B981;">{html.escape(seat_num)} ({html.escape(berth_type)})</div>
+        </div>
+    </div>
+</div>
+""").strip(),
                 unsafe_allow_html=True,
             )
 
@@ -199,7 +197,7 @@ def render_coach_position_page() -> None:
 
             st.markdown(
                 f"""
-                <div style="padding: 0.75rem 1rem; background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; margin-bottom: 1rem; font-size: 0.85rem; color: #1E40AF;">
+                <div style="padding: 0.75rem 1rem; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 8px; margin-bottom: 1rem; font-size: 0.85rem; color: #38BDF8;">
                     📍 <b>Coach Position Guide</b>: Coach <b>{html.escape(coach_id)}</b> is positioned in the <b>{html.escape(rel_desc)}</b>.
                 </div>
                 """,
@@ -208,19 +206,19 @@ def render_coach_position_page() -> None:
 
             # Render authentic rake formation diagram
             from passenger_app import clean_html
-            st.markdown('<div style="font-size: 1.05rem; font-weight: 700; color: #0F172A; margin: 1rem 0 0.5rem 0;">🚆 Train Rake Formation (Locomotive to Rear)</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-size: 1.05rem; font-weight: 700; color: #F1F5F9; margin: 1rem 0 0.5rem 0;">🚆 Train Rake Formation (Locomotive to Rear)</div>', unsafe_allow_html=True)
             formation_html = render_coach_formation_html(train_num, coach_id, seat_num)
             st.markdown(clean_html(formation_html), unsafe_allow_html=True)
 
             # Render interior seat layout
-            st.markdown('<div style="font-size: 1.05rem; font-weight: 700; color: #0F172A; margin: 1.25rem 0 0.5rem 0;">💺 Interior Berth & Seat Layout</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-size: 1.05rem; font-weight: 700; color: #F1F5F9; margin: 1.25rem 0 0.5rem 0;">💺 Interior Berth & Seat Layout</div>', unsafe_allow_html=True)
             seat_map_html = render_coach_seat_map_html(train_num, coach_id, seat_num)
             st.markdown(clean_html(seat_map_html), unsafe_allow_html=True)
 
             # 6. Display source and freshness
             st.markdown(
                 """
-                <div style="margin-top: 1.5rem; padding: 0.75rem 1rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 0.72rem; color: #64748B;">
+                <div style="margin-top: 1.5rem; padding: 0.75rem 1rem; background: #0B1730; border: 1px solid #2A3B57; border-radius: 8px; font-size: 0.72rem; color: #A9BAD3;">
                     🔍 <b>Data Provenance & Freshness</b>: Rake composition verified against Indian Railways Carriage & Wagon (C&W) marshalling registers. Rake configuration is direction-dependent. Last verified: Today.
                 </div>
                 """,
@@ -233,10 +231,9 @@ def render_coach_position_page() -> None:
     # TAB 2: Public Train Rake Catalog Explorer
     # ==============================================================
     with tab_browse:
-        st.markdown('<div class="rt-card">', unsafe_allow_html=True)
-        st.markdown('<div class="rt-card-title">🔍 Browse Standard Indian Railways Train Formations</div>', unsafe_allow_html=True)
+        st.markdown('<div class="rt-card-title" style="margin-bottom: 0.25rem;">🔍 Browse Standard Indian Railways Train Formations</div>', unsafe_allow_html=True)
         st.markdown(
-            '<div style="font-size: 0.8rem; color: #64748B; margin-bottom: 12px;">'
+            '<div style="font-size: 0.8rem; color: #A9BAD3; margin-bottom: 12px;">'
             'Inspect standard rake marshalling orders and coach layouts for major express and premium trains.'
             '</div>',
             unsafe_allow_html=True,
@@ -262,21 +259,19 @@ def render_coach_position_page() -> None:
         with b_col_se:
             sel_b_seat = st.text_input("Sample Seat (Optional)", value="", placeholder="e.g. 24", key="browse_seat_in")
 
-        st.markdown('</div>', unsafe_allow_html=True)
-
         from passenger_app import clean_html
-        st.markdown('<div style="font-size: 1.05rem; font-weight: 700; color: #0F172A; margin: 1rem 0 0.5rem 0;">🚆 Marshalling Order Diagram</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-size: 1.05rem; font-weight: 700; color: #F1F5F9; margin: 1rem 0 0.5rem 0;">🚆 Marshalling Order Diagram</div>', unsafe_allow_html=True)
         b_formation_html = render_coach_formation_html(b_train_num, sel_b_coach, sel_b_seat)
         st.markdown(clean_html(b_formation_html), unsafe_allow_html=True)
 
-        st.markdown('<div style="font-size: 1.05rem; font-weight: 700; color: #0F172A; margin: 1.25rem 0 0.5rem 0;">💺 Coach Floor Plan</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-size: 1.05rem; font-weight: 700; color: #F1F5F9; margin: 1.25rem 0 0.5rem 0;">💺 Coach Floor Plan</div>', unsafe_allow_html=True)
         b_seat_map_html = render_coach_seat_map_html(b_train_num, sel_b_coach, sel_b_seat)
         st.markdown(clean_html(b_seat_map_html), unsafe_allow_html=True)
 
     # Security requirement notice
     st.markdown(
         """
-        <div style="margin-top: 1.5rem; padding: 0.75rem 1rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 0.72rem; color: #64748B;">
+        <div style="margin-top: 1.5rem; padding: 0.75rem 1rem; background: #0B1730; border: 1px solid #2A3B57; border-radius: 8px; font-size: 0.72rem; color: #A9BAD3;">
             🔒 <b>Privacy & Security Notice</b>: Passenger names and berth allocations are never stored in browser history, visible URLs, or unencrypted logs. PNR verification requires a direct authenticated query to the passenger reservation backend.
         </div>
         """,

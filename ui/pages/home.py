@@ -47,8 +47,7 @@ def render_home_page() -> None:
 
     # 2. Search Trains & Timetables
     with st.container():
-        st.markdown('<div class="rt-card" style="margin-bottom: 1.25rem;">', unsafe_allow_html=True)
-        st.markdown('<div class="rt-card-title">🔍 Search Trains & Timetables</div>', unsafe_allow_html=True)
+        st.markdown('<div class="rt-card-title" style="margin-bottom: 0.75rem;">🔍 Search Trains & Timetables</div>', unsafe_allow_html=True)
 
         scol1, scol_swap, scol2, scol3 = st.columns([4, 1, 4, 3])
 
@@ -88,10 +87,8 @@ def render_home_page() -> None:
             from ui.routing import page_trains
             st.switch_page(page_trains)
 
-        st.markdown('</div>', unsafe_allow_html=True)
-
     # 3. 4 Essential Service Shortcuts (Quick Actions)
-    st.markdown('<div style="font-size:1.05rem; font-weight:700; color:#0F172A; margin: 0.5rem 0 0.75rem 0;">⚡ Essential Passenger Services</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:1.05rem; font-weight:700; color:#F1F5F9; margin: 1.25rem 0 0.75rem 0;">⚡ Essential Passenger Services</div>', unsafe_allow_html=True)
 
     qcol1, qcol2, qcol3, qcol4 = st.columns(4)
 
@@ -160,14 +157,15 @@ def render_home_page() -> None:
     with st.container():
         st.markdown(
             """
-            <div class="rt-card" style="background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%); border-left: 4px solid #1E40AF; margin-bottom: 1.25rem;">
-                <div class="rt-card-header">
+            <div style="background: #101D37; border: 1px solid #2A3B57; border-left: 4px solid #38BDF8; border-radius: 10px; padding: 0.85rem 1rem; margin-bottom: 0.75rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
                     <div>
-                        <span class="rt-card-title">🤖 AI Journey Assistant — Need a Smart Recommendation?</span>
-                        <div style="font-size: 0.78rem; color: #64748B;">Ask in plain English with your arrival deadline or travel preferences.</div>
+                        <div style="font-weight: 700; color: #F1F5F9; font-size: 0.95rem;">🤖 AI Journey Assistant — Need a Smart Recommendation?</div>
+                        <div style="font-size: 0.78rem; color: #A9BAD3;">Ask in plain English with your arrival deadline or travel preferences.</div>
                     </div>
                     <span class="rt-badge rt-badge-predicted">ML + TIMETABLES</span>
                 </div>
+            </div>
             """,
             unsafe_allow_html=True,
         )
@@ -194,8 +192,6 @@ def render_home_page() -> None:
             from ui.routing import page_find_best_train
             st.switch_page(page_find_best_train)
 
-        st.markdown('</div>', unsafe_allow_html=True)
-
     # 5. Active Journey Card or Recent Searches
     verified_ticket = st.session_state.get("verified_ticket")
     if verified_ticket:
@@ -204,11 +200,11 @@ def render_home_page() -> None:
         psg = verified_ticket.get("passenger", {})
         st.markdown(
             f"""
-            <div class="rt-card" style="border-left: 4px solid #059669; margin-bottom: 1.25rem;">
+            <div class="rt-card" style="border-left: 4px solid #10B981; margin-bottom: 1.25rem;">
                 <div class="rt-card-header">
                     <div>
                         <span class="rt-card-title">🎫 Active Journey: {html.escape(jrny.get('train_name', 'Train'))} ({html.escape(jrny.get('train_number', ''))})</span>
-                        <div style="font-size:0.75rem; color:#64748B;">PNR: <b>{html.escape(str(verified_ticket.get('pnr', '')))}</b> · Passenger: {html.escape(psg.get('name', ''))}</div>
+                        <div style="font-size:0.75rem; color:#A9BAD3;">PNR: <b>{html.escape(str(verified_ticket.get('pnr', '')))}</b> · Passenger: {html.escape(psg.get('name', ''))}</div>
                     </div>
                     <div>
                         <span class="rt-badge rt-badge-live">✓ {html.escape(str(bkg.get('status', 'CNF')))}</span>
@@ -216,16 +212,16 @@ def render_home_page() -> None:
                 </div>
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
                     <div>
-                        <div style="font-size:0.78rem; color:#64748B;">Route</div>
-                        <div style="font-weight:700; color:#0F172A;">{html.escape(jrny.get('from_station', ''))} → {html.escape(jrny.get('to_station', ''))}</div>
+                        <div style="font-size:0.78rem; color:#A9BAD3;">Route</div>
+                        <div style="font-weight:700; color:#F1F5F9;">{html.escape(jrny.get('from_station', ''))} → {html.escape(jrny.get('to_station', ''))}</div>
                     </div>
                     <div>
-                        <div style="font-size:0.78rem; color:#64748B;">Coach & Berth</div>
-                        <div style="font-weight:700; color:#1E40AF;">Coach {html.escape(str(bkg.get('coach', '')))} · Berth {html.escape(str(bkg.get('seat_number', '')))} ({html.escape(str(bkg.get('berth_type', '')))})</div>
+                        <div style="font-size:0.78rem; color:#A9BAD3;">Coach & Berth</div>
+                        <div style="font-weight:700; color:#38BDF8;">Coach {html.escape(str(bkg.get('coach', '')))} · Berth {html.escape(str(bkg.get('seat_number', '')))} ({html.escape(str(bkg.get('berth_type', '')))})</div>
                     </div>
                     <div>
-                        <div style="font-size:0.78rem; color:#64748B;">Travel Date</div>
-                        <div style="font-weight:700; color:#0F172A;">{html.escape(str(jrny.get('travel_date', 'Today')))}</div>
+                        <div style="font-size:0.78rem; color:#A9BAD3;">Travel Date</div>
+                        <div style="font-weight:700; color:#F1F5F9;">{html.escape(str(jrny.get('travel_date', 'Today')))}</div>
                     </div>
                 </div>
             </div>
@@ -236,19 +232,19 @@ def render_home_page() -> None:
         # Recently Viewed / Popular Routes
         st.markdown(
             """
-            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 0.85rem 1rem; margin-bottom: 1.25rem;">
-                <div style="font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.5rem;">🔥 Popular Passenger Routes:</div>
+            <div style="background: #101D37; border: 1px solid #2A3B57; border-radius: 10px; padding: 0.85rem 1rem; margin-bottom: 1.25rem;">
+                <div style="font-size: 0.8rem; font-weight: 700; color: #A9BAD3; margin-bottom: 0.5rem;">🔥 Popular Passenger Routes:</div>
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                    <span style="background: #FFFFFF; border: 1px solid #CBD5E1; color: #1E293B; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600;">
+                    <span style="background: #162640; border: 1px solid #2A3B57; color: #F1F5F9; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600;">
                         New Delhi ⇄ Kanpur Central
                     </span>
-                    <span style="background: #FFFFFF; border: 1px solid #CBD5E1; color: #1E293B; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600;">
+                    <span style="background: #162640; border: 1px solid #2A3B57; color: #F1F5F9; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600;">
                         New Delhi ⇄ Jammu Tawi
                     </span>
-                    <span style="background: #FFFFFF; border: 1px solid #CBD5E1; color: #1E293B; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600;">
+                    <span style="background: #162640; border: 1px solid #2A3B57; color: #F1F5F9; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600;">
                         New Delhi ⇄ Howrah Junction
                     </span>
-                    <span style="background: #FFFFFF; border: 1px solid #CBD5E1; color: #1E293B; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600;">
+                    <span style="background: #162640; border: 1px solid #2A3B57; color: #F1F5F9; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600;">
                         Kanpur Central ⇄ Prayagraj Jn
                     </span>
                 </div>
@@ -260,7 +256,7 @@ def render_home_page() -> None:
     # 6. Relevant Travel Notice & Operational Advisory
     st.markdown(
         """
-        <div style="padding: 0.85rem 1rem; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; font-size: 0.75rem; color: #92400E; line-height: 1.5; margin-bottom: 1.25rem;">
+        <div style="padding: 0.85rem 1rem; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; font-size: 0.75rem; color: #FBBF24; line-height: 1.5; margin-bottom: 1.25rem;">
             ⚠️ <b>Operational Travel Advisory</b>: Sectional speed restrictions (TSR) are active between Kanpur and Prayagraj for automated track renewal. Live safety clearances and train dispatching are controlled under Indian Railways G&SR rules.
         </div>
         """,
@@ -270,7 +266,7 @@ def render_home_page() -> None:
     # 7. Non-vital Platform Notice Footer
     st.markdown(
         """
-        <div style="padding: 0.75rem 1rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 0.72rem; color: #64748B; line-height: 1.5;">
+        <div style="padding: 0.75rem 1rem; background: #0B1730; border: 1px solid #2A3B57; border-radius: 8px; font-size: 0.72rem; color: #A9BAD3; line-height: 1.5;">
             🏛️ <b>RailTrack Transparency & Safety Notice</b>: RailTrack provides passenger journey intelligence and multi-train section optimization. Station platforms, timetables, and delay predictions are matched against verified railway database records. Rail Madad helpline: <b>139</b>.
         </div>
         """,

@@ -16,7 +16,19 @@ from ui.components.header import render_app_header
 from ui.components.provenance import get_provenance_badge_html
 
 
-BACKEND_URL = os.environ.get("BACKEND_URL", "http://127.0.0.1:8000")
+def resolve_backend_url() -> str:
+    """Resolve backend URL with intelligent Render deployment detection."""
+    url = os.environ.get("BACKEND_URL", "").strip()
+    if not url:
+        if os.environ.get("RENDER") or os.environ.get("PORT"):
+            return "https://sih26028-railway-backend.onrender.com"
+        return "http://127.0.0.1:8000"
+    if (url.rstrip("/").endswith("127.0.0.1:8000") or url.rstrip("/").endswith("localhost:8000")) and (os.environ.get("RENDER") or os.environ.get("PORT")):
+        return "https://sih26028-railway-backend.onrender.com"
+    return url.rstrip("/")
+
+
+BACKEND_URL = resolve_backend_url()
 
 
 def minutes_to_hhmm(minutes: int) -> str:
@@ -48,25 +60,25 @@ def render_operations_page() -> None:
     user_role = (user.get("role") or "GUEST").upper()
 
     # Safety Guard Banner
-    st.markdown('<div class="rt-card" style="border-left: 4px solid #1E40AF;">', unsafe_allow_html=True)
     st.markdown(
         f"""
-        <div class="rt-card-header">
-            <div>
-                <span class="rt-card-title">🛠️ Section Controller & Maintenance Optimizer</span>
-                <div style="font-size:0.8rem; color:#64748B;">Role Authorization: <b>{user_role}</b> · Safety Standard: RDSO Non-Vital Advisory DSS</div>
+        <div style="background: #101D37; border: 1px solid #2A3B57; border-left: 4px solid #38BDF8; border-radius: 10px; padding: 1rem 1.15rem; margin-bottom: 1.25rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom: 8px;">
+                <div>
+                    <span class="rt-card-title">🛠️ Section Controller & Maintenance Optimizer</span>
+                    <div style="font-size:0.8rem; color:#A9BAD3;">Role Authorization: <b>{user_role}</b> · Safety Standard: RDSO Non-Vital Advisory DSS</div>
+                </div>
+                <div>
+                    {get_provenance_badge_html("VERIFIED LIVE", source="CP_SAT_DISCRETE_ENGINE")}
+                </div>
             </div>
-            <div>
-                {get_provenance_badge_html("VERIFIED LIVE", source="CP_SAT_DISCRETE_ENGINE")}
+            <div style="font-size:0.82rem; color:#A9BAD3; line-height:1.5;">
+                This console allocates zero-conflict track maintenance possessions using discrete OR-Tools CP-SAT multi-resource scheduling, enforced safety gates, and electrical traction (OHE) permits.
             </div>
-        </div>
-        <div style="font-size:0.82rem; color:#475569; line-height:1.5;">
-            This console allocates zero-conflict track maintenance possessions using discrete OR-Tools CP-SAT multi-resource scheduling, enforced safety gates, and electrical traction (OHE) permits.
         </div>
         """,
         unsafe_allow_html=True,
     )
-    st.markdown('</div>', unsafe_allow_html=True)
 
     # 1. Section Selection
     sections = fetch_sections()
@@ -88,9 +100,17 @@ def render_operations_page() -> None:
     m3.metric("Line Speed", f"{sec_details.get('speed_limit_kmph', 130)} km/h")
     m4.metric("Signaling", "ABS (Auto Block)")
 
+    st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
+
     # 3. Live Section Track Diagram
-    st.markdown('<div class="rt-card">', unsafe_allow_html=True)
-    st.markdown('<div class="rt-card-title">🛤️ Live Track Diagram & Train Radar</div>', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div style="background: #101D37; border: 1px solid #2A3B57; border-radius: 10px; padding: 0.85rem 1rem; margin-bottom: 0.75rem;">
+            <div class="rt-card-title">🛤️ Live Track Diagram & Train Radar</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     start_km = sec_details.get("start_km", 400.0)
     end_km = sec_details.get("end_km", 442.5)
@@ -99,37 +119,58 @@ def render_operations_page() -> None:
     # Main running line
     fig.add_trace(go.Scatter(
         x=[start_km, end_km], y=[0, 0],
-        mode="lines", line=dict(width=10, color="#1E40AF"), showlegend=False
+        mode="lines", line=dict(width=10, color="#38BDF8"), showlegend=False
     ))
     # Junction markers
     fig.add_trace(go.Scatter(
         x=[start_km, end_km], y=[0, 0],
         mode="markers+text", text=["Kanpur (CNB)", "Prayagraj (PRYJ)"],
-        textposition="top center", marker=dict(size=14, color="#071530"), showlegend=False
+        textposition="top center",
+        marker=dict(size=14, color="#FF4B55"),
+        textfont=dict(color="#F1F5F9", size=12),
+        showlegend=False
     ))
     # Train markers
     for t in trains:
         pos = t.get("position_km", 410.0)
         p = t.get("priority", 3)
-        col = "#DC2626" if p <= 2 else ("#2563EB" if p == 3 else "#64748B")
+        col = "#FF4B55" if p <= 2 else ("#38BDF8" if p == 3 else "#94A3B8")
         fig.add_trace(go.Scatter(
             x=[pos], y=[0], mode="markers+text",
             text=[f"🚆 {t.get('train_number')}"], textposition="bottom center",
+            textfont=dict(color="#F1F5F9", size=11),
             marker=dict(size=16, color=col), name=t.get("name", ""),
             hovertemplate=f"<b>{t.get('train_number')} {t.get('name')}</b><br>Speed: {t.get('speed_kmph')} km/h<br>KM: {pos:.1f}<extra></extra>"
         ))
 
     fig.update_layout(
-        height=220, margin=dict(l=20, r=20, t=25, b=20),
-        xaxis_title="Track Kilometre", yaxis=dict(visible=False, range=[-0.6, 0.6]),
+        height=220,
+        margin=dict(l=20, r=20, t=25, b=20),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="#0B132B",
+        font=dict(color="#F1F5F9"),
+        xaxis=dict(
+            title="Track Kilometre",
+            color="#A9BAD3",
+            gridcolor="#2A3B57",
+            zerolinecolor="#2A3B57",
+        ),
+        yaxis=dict(visible=False, range=[-0.6, 0.6]),
         showlegend=False,
     )
     st.plotly_chart(fig, use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
 
     # 4. OR-Tools CP-SAT Maintenance Possessions Optimizer
-    st.markdown('<div class="rt-card">', unsafe_allow_html=True)
-    st.markdown('<div class="rt-card-title">⚙️ Mathematical Maintenance Window Optimizer (CP-SAT)</div>', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div style="background: #101D37; border: 1px solid #2A3B57; border-radius: 10px; padding: 0.85rem 1rem; margin-bottom: 0.75rem;">
+            <div class="rt-card-title">⚙️ Mathematical Maintenance Window Optimizer (CP-SAT)</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     op_col1, op_col2, op_col3 = st.columns(3)
     with op_col1:
@@ -191,15 +232,20 @@ def render_operations_page() -> None:
         else:
             st.warning(opt_res.get("message") or "No feasible slot found without violating train headways.")
 
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
 
     # 5. Persistent Committed Maintenance Possessions Log
     committed = fetch_committed_blocks()
     if committed:
-        st.markdown('<div class="rt-card">', unsafe_allow_html=True)
-        st.markdown(f'<div class="rt-card-title">📋 Officially Committed TMS Block Log ({len(committed)})</div>', unsafe_allow_html=True)
+        st.markdown(
+            f"""
+            <div style="background: #101D37; border: 1px solid #2A3B57; border-radius: 10px; padding: 0.85rem 1rem; margin-bottom: 0.75rem;">
+                <div class="rt-card-title">📋 Officially Committed TMS Block Log ({len(committed)})</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         st.dataframe(pd.DataFrame(committed), use_container_width=True, hide_index=True)
-        st.markdown('</div>', unsafe_allow_html=True)
 
 
 if __name__ == "__main__":

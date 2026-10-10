@@ -28,16 +28,16 @@ def render_station_stepper_html(
         if idx < current_station_idx:
             step_class = "rt-timeline-step passed"
             dot_content = "✓"
-            status_text = '<span style="color:#059669; font-weight:700;">Departed</span>'
+            status_text = '<span style="color:#10B981; font-weight:700;">Departed</span>'
         elif idx == current_station_idx:
             step_class = "rt-timeline-step active"
             dot_content = "🚆"
             delay_str = f" (+{delay_min}m)" if delay_min > 0 else " (On Time)"
-            status_text = f'<span style="color:#1E40AF; font-weight:800;">Current Station{delay_str}</span>'
+            status_text = f'<span style="color:#38BDF8; font-weight:800;">Current Station{delay_str}</span>'
         else:
             step_class = "rt-timeline-step"
             dot_content = str(idx + 1)
-            status_text = '<span style="color:#64748B;">Upcoming</span>'
+            status_text = '<span style="color:#A9BAD3;">Upcoming</span>'
 
         steps_html += f"""
         <div class="{step_class}">
@@ -46,31 +46,32 @@ def render_station_stepper_html(
             <div style="flex: 1; min-width: 0;">
                 <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap;">
                     <div>
-                        <span style="font-weight: 700; font-size: 0.95rem; color: #0F172A;">{name}</span>
-                        <span style="font-size: 0.75rem; font-weight: 600; color: #64748B; margin-left: 4px;">({code})</span>
+                        <span style="font-weight: 700; font-size: 0.95rem; color: #F1F5F9;">{name}</span>
+                        <span style="font-size: 0.75rem; font-weight: 600; color: #A9BAD3; margin-left: 4px;">({code})</span>
                     </div>
                     <div>
                         {status_text}
                     </div>
                 </div>
-                <div style="display: flex; gap: 14px; font-size: 0.78rem; color: #475569; margin-top: 4px;">
-                    <span>Arr: <b>{sch_arr}</b></span>
-                    <span>Dep: <b>{sch_dep}</b></span>
-                    <span>PF: <b style="color:#1E40AF;">#{platform}</b></span>
-                    <span>Distance: <b>{km:.1f} km</b></span>
+                <div style="display: flex; gap: 14px; font-size: 0.78rem; color: #A9BAD3; margin-top: 4px;">
+                    <span>Arr: <b style="color:#F1F5F9;">{sch_arr}</b></span>
+                    <span>Dep: <b style="color:#F1F5F9;">{sch_dep}</b></span>
+                    <span>PF: <b style="color:#38BDF8;">#{platform}</b></span>
+                    <span>Distance: <b style="color:#F1F5F9;">{km:.1f} km</b></span>
                 </div>
             </div>
         </div>
         """
 
-    return f"""
-    <div class="rt-card">
-        <div class="rt-card-header">
-            <span class="rt-card-title">📍 Station Progression & Timetable</span>
-            <span class="rt-badge rt-badge-live">LIVE TRACKING</span>
-        </div>
-        <div style="padding: 0.5rem 0.25rem;">
-            {steps_html}
-        </div>
+    import textwrap
+    return textwrap.dedent(f"""
+<div class="rt-card">
+    <div class="rt-card-header">
+        <span class="rt-card-title">📍 Station Progression & Timetable</span>
+        <span class="rt-badge rt-badge-live">LIVE TRACKING</span>
     </div>
-    """
+    <div style="padding: 0.5rem 0.25rem;">
+        {steps_html}
+    </div>
+</div>
+""").strip()

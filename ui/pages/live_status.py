@@ -58,8 +58,7 @@ def render_live_status_page() -> None:
                 default_idx = idx
                 break
 
-    st.markdown('<div class="rt-card" style="margin-bottom: 1.25rem;">', unsafe_allow_html=True)
-    st.markdown('<div class="rt-card-title">📍 Live Train Running Status Radar</div>', unsafe_allow_html=True)
+    st.markdown('<div class="rt-card-title" style="margin-bottom: 0.75rem;">📍 Live Train Running Status Radar</div>', unsafe_allow_html=True)
 
     c_select, c_refresh = st.columns([5, 1])
     with c_select:
@@ -68,14 +67,12 @@ def render_live_status_page() -> None:
             list(train_options.keys()) if train_options else ["No trains active in monitored section"],
             index=default_idx if train_options else 0,
             key="live_status_train_select",
+            label_visibility="collapsed",
         )
     with c_refresh:
-        st.markdown('<div style="height:28px;"></div>', unsafe_allow_html=True)
         if st.button("🔄 Refresh", key="btn_refresh_live_status", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
-
-    st.markdown('</div>', unsafe_allow_html=True)
 
     if not train_options:
         st.warning("No active trains are currently reported in the monitored corridor.")
@@ -98,53 +95,54 @@ def render_live_status_page() -> None:
     badge_label = "VERIFIED LIVE" if prov_status in ("LIVE_GPS", "GOVT_OF_INDIA_CRIS", "GOVT_CRIS_NTES") else ("PREDICTED" if prov_status == "KINEMATIC_DEAD_RECKONING" else "DEMO DATA")
 
     # 1. Real-time Telemetry Overview Bar
+    import textwrap
     st.markdown(
-        f"""
-        <div class="rt-card" style="margin-bottom: 1.25rem;">
-            <div class="rt-card-header">
-                <div>
-                    <span style="font-size: 1.35rem; font-weight: 800; color: #0F172A;">🚆 {html.escape(str(tr_num))} {html.escape(str(tr_name))}</span>
-                    <div style="font-size: 0.8rem; color: #64748B; margin-top: 2px;">
-                        Route: <b>{html.escape(str(train.get('passenger_from', 'Origin')))} → {html.escape(str(train.get('passenger_to', 'Destination')))}</b>
-                    </div>
-                </div>
-                <div>
-                    {get_provenance_badge_html(badge_label, source=prov_status)}
-                </div>
-            </div>
-
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 0.75rem;">
-                <div class="rt-metric-pill">
-                    <span class="rt-metric-label">Current Location</span>
-                    <span class="rt-metric-val" style="font-size: 0.95rem; color: #0F172A;">{html.escape(str(curr_stn_label))}</span>
-                </div>
-                <div class="rt-metric-pill">
-                    <span class="rt-metric-label">Next Station</span>
-                    <span class="rt-metric-val" style="font-size: 0.95rem; color: #1E40AF;">{html.escape(str(next_stn_label))}</span>
-                </div>
-                <div class="rt-metric-pill">
-                    <span class="rt-metric-label">Distance to Next</span>
-                    <span class="rt-metric-val" style="font-size: 0.95rem;">{f"{dist_next} km" if dist_next is not None else "--"}</span>
-                </div>
-                <div class="rt-metric-pill">
-                    <span class="rt-metric-label">Current Speed</span>
-                    <span class="rt-metric-val" style="font-size: 0.95rem; color: #1E40AF;">{speed} km/h</span>
-                </div>
-                <div class="rt-metric-pill">
-                    <span class="rt-metric-label">Running Delay</span>
-                    <span class="rt-metric-val" style="font-size: 0.95rem; color: {'#DC2626' if delay > 0 else '#059669'};">
-                        {'+' + str(delay) + ' min' if delay > 0 else 'On Time'}
-                    </span>
-                </div>
-                <div class="rt-metric-pill">
-                    <span class="rt-metric-label">Destination ETA</span>
-                    <span class="rt-metric-val" style="font-size: 0.95rem; color: #059669;">
-                        {str(dest_eta) + ' min' if dest_eta is not None else '--'}
-                    </span>
-                </div>
+        textwrap.dedent(f"""
+<div class="rt-card" style="margin-bottom: 1.25rem;">
+    <div class="rt-card-header">
+        <div>
+            <span style="font-size: 1.35rem; font-weight: 800; color: #F1F5F9;">🚆 {html.escape(str(tr_num))} {html.escape(str(tr_name))}</span>
+            <div style="font-size: 0.8rem; color: #A9BAD3; margin-top: 2px;">
+                Route: <b style="color:#F1F5F9;">{html.escape(str(train.get('passenger_from', 'Origin')))} → {html.escape(str(train.get('passenger_to', 'Destination')))}</b>
             </div>
         </div>
-        """,
+        <div>
+            {get_provenance_badge_html(badge_label, source=prov_status)}
+        </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 0.75rem;">
+        <div class="rt-metric-pill">
+            <span class="rt-metric-label">Current Location</span>
+            <span class="rt-metric-val" style="font-size: 0.95rem; color: #F1F5F9;">{html.escape(str(curr_stn_label))}</span>
+        </div>
+        <div class="rt-metric-pill">
+            <span class="rt-metric-label">Next Station</span>
+            <span class="rt-metric-val" style="font-size: 0.95rem; color: #38BDF8;">{html.escape(str(next_stn_label))}</span>
+        </div>
+        <div class="rt-metric-pill">
+            <span class="rt-metric-label">Distance to Next</span>
+            <span class="rt-metric-val" style="font-size: 0.95rem;">{f"{dist_next} km" if dist_next is not None else "--"}</span>
+        </div>
+        <div class="rt-metric-pill">
+            <span class="rt-metric-label">Current Speed</span>
+            <span class="rt-metric-val" style="font-size: 0.95rem; color: #38BDF8;">{speed} km/h</span>
+        </div>
+        <div class="rt-metric-pill">
+            <span class="rt-metric-label">Running Delay</span>
+            <span class="rt-metric-val" style="font-size: 0.95rem; color: {'#EF4444' if delay > 0 else '#10B981'};">
+                {'+' + str(delay) + ' min' if delay > 0 else 'On Time'}
+            </span>
+        </div>
+        <div class="rt-metric-pill">
+            <span class="rt-metric-label">Destination ETA</span>
+            <span class="rt-metric-val" style="font-size: 0.95rem; color: #10B981;">
+                {str(dest_eta) + ' min' if dest_eta is not None else '--'}
+            </span>
+        </div>
+    </div>
+</div>
+""").strip(),
         unsafe_allow_html=True,
     )
 
@@ -161,14 +159,14 @@ def render_live_status_page() -> None:
     col_timeline, col_map = st.columns([1, 1.15])
 
     with col_timeline:
-        st.markdown('<div style="font-size: 1.05rem; font-weight: 700; color: #0F172A; margin-bottom: 8px;">🚉 Station Progression Timeline</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-size: 1.05rem; font-weight: 700; color: #F1F5F9; margin-bottom: 8px;">🚉 Station Progression Timeline</div>', unsafe_allow_html=True)
         stations = get_route_stations(active_section, train)
         cur_idx = 1 if len(stations) > 2 else 0
         from passenger_app import clean_html
         st.markdown(clean_html(render_station_stepper_html(stations, current_station_idx=cur_idx, delay_min=delay)), unsafe_allow_html=True)
 
     with col_map:
-        st.markdown('<div style="font-size: 1.05rem; font-weight: 700; color: #0F172A; margin-bottom: 8px;">🗺️ Route Map & Live Radar</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-size: 1.05rem; font-weight: 700; color: #F1F5F9; margin-bottom: 8px;">🗺️ Route Map & Live Radar</div>', unsafe_allow_html=True)
 
         # Plotly Map Construction
         raw_stops = train.get("intermediate_stops") or []
@@ -239,7 +237,7 @@ def render_live_status_page() -> None:
                 mode="markers+text",
                 text=[s["name"] for s in map_stations],
                 textposition="top right",
-                textfont={"size": 10, "color": "#0F172A"},
+                textfont={"size": 10, "color": "#F1F5F9"},
                 marker={"color": "#0284c7", "size": 9},
                 showlegend=False,
             )

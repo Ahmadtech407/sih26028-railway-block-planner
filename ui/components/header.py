@@ -10,14 +10,26 @@ import requests
 import os
 
 
-BACKEND_URL = os.environ.get("BACKEND_URL", "http://127.0.0.1:8000")
+def resolve_backend_url() -> str:
+    """Resolve backend URL with intelligent Render deployment detection."""
+    url = os.environ.get("BACKEND_URL", "").strip()
+    if not url:
+        if os.environ.get("RENDER") or os.environ.get("PORT"):
+            return "https://sih26028-railway-backend.onrender.com"
+        return "http://127.0.0.1:8000"
+    if (url.rstrip("/").endswith("127.0.0.1:8000") or url.rstrip("/").endswith("localhost:8000")) and (os.environ.get("RENDER") or os.environ.get("PORT")):
+        return "https://sih26028-railway-backend.onrender.com"
+    return url.rstrip("/")
+
+
+BACKEND_URL = resolve_backend_url()
 
 
 @st.cache_data(ttl=15)
 def get_backend_status() -> Dict[str, Any]:
     """Check backend operational status (cached for 15s)."""
     try:
-        r = requests.get(f"{BACKEND_URL}/health", timeout=1.5)
+        r = requests.get(f"{BACKEND_URL}/", timeout=1.5)
         if r.status_code == 200:
             return {"online": True, "status": "ONLINE"}
     except Exception:
@@ -62,17 +74,17 @@ def render_app_header() -> None:
         if is_auth:
             display_name = html.escape((user.get("name") or "User").split()[0])
             st.markdown(
-                f'<div style="text-align: right; font-size: 0.85rem; font-weight: 600; color: #0F172A; padding-top: 6px;">'
+                f'<div style="text-align: right; font-size: 0.85rem; font-weight: 600; color: #F1F5F9; padding-top: 6px;">'
                 f'👤 {display_name} <span class="rt-badge rt-badge-historical" style="font-size:0.65rem;">Active</span>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
         else:
             st.markdown(
-                '<div style="text-align: right; font-size: 0.85rem; color: #64748B; padding-top: 6px;">'
+                '<div style="text-align: right; font-size: 0.85rem; color: #A9BAD3; padding-top: 6px;">'
                 '👤 Guest Passenger'
                 '</div>',
                 unsafe_allow_html=True,
             )
 
-    st.markdown('<div style="height: 1px; background: #E2E8F0; margin: 0.6rem 0 1.2rem 0;"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="height: 1px; background: #2A3B57; margin: 0.6rem 0 1.2rem 0;"></div>', unsafe_allow_html=True)

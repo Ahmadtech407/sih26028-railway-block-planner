@@ -48,7 +48,19 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-BACKEND_URL = os.environ.get("BACKEND_URL", "http://127.0.0.1:8000")
+def resolve_backend_url() -> str:
+    """Resolve backend URL with intelligent Render deployment detection."""
+    url = os.environ.get("BACKEND_URL", "").strip()
+    if not url:
+        if os.environ.get("RENDER") or os.environ.get("PORT"):
+            return "https://sih26028-railway-backend.onrender.com"
+        return "http://127.0.0.1:8000"
+    if (url.rstrip("/").endswith("127.0.0.1:8000") or url.rstrip("/").endswith("localhost:8000")) and (os.environ.get("RENDER") or os.environ.get("PORT")):
+        return "https://sih26028-railway-backend.onrender.com"
+    return url.rstrip("/")
+
+
+BACKEND_URL = resolve_backend_url()
 
 st.markdown(
     textwrap.dedent(
@@ -2859,57 +2871,57 @@ def render_verified_ticket_card(ticket: Dict[str, Any]) -> None:
     hash_id = ticket.get("security_hash", "SHA256-IRCTC-VALID")
 
     ticket_html = f"""
-    <div class="ticket-card">
-        <div class="ticket-header-row">
+    <div class="ticket-card" style="background:#101D37; border:1px solid #2A3B57;">
+        <div class="ticket-header-row" style="border-bottom:1px dashed #2A3B57;">
             <div>
                 <div style="display:flex; align-items:center; gap:8px;">
-                    <span style="font-size:1.1rem; font-weight:800; color:#8b0000;">🇮🇳 INDIAN RAILWAYS E-TICKET (ERS)</span>
+                    <span style="font-size:1.1rem; font-weight:800; color:#FF4B55;">🇮🇳 INDIAN RAILWAYS E-TICKET (ERS)</span>
                     <span class="ticket-status-cnf">✓ {html.escape(str(status))} · ALLOTTED</span>
                 </div>
-                <div style="font-size:0.78rem; color:#64748b; margin-top:3px;">
+                <div style="font-size:0.78rem; color:#A9BAD3; margin-top:3px;">
                     Electronic Reservation Slip · IRCTC Manifest Verified
                 </div>
             </div>
             <div style="text-align:right;">
                 <span class="ticket-pnr-badge">PNR: {html.escape(str(pnr))}</span>
-                <div style="font-size:0.72rem; color:#94a3b8; margin-top:2px;">ID: {html.escape(str(tkt_id))}</div>
+                <div style="font-size:0.72rem; color:#A9BAD3; margin-top:2px;">ID: {html.escape(str(tkt_id))}</div>
             </div>
         </div>
 
         <div class="ticket-grid">
             <div class="ticket-field">
-                <div class="ticket-field-label">Passenger Name</div>
-                <div class="ticket-field-val">👤 {html.escape(str(name))}</div>
-                <div style="font-size:0.75rem; color:#64748b; margin-top:2px;">{age} Yrs · {html.escape(str(gender))}</div>
+                <div class="ticket-field-label" style="color:#A9BAD3;">Passenger Name</div>
+                <div class="ticket-field-val" style="color:#F1F5F9;">👤 {html.escape(str(name))}</div>
+                <div style="font-size:0.75rem; color:#A9BAD3; margin-top:2px;">{age} Yrs · {html.escape(str(gender))}</div>
             </div>
             <div class="ticket-field">
-                <div class="ticket-field-label">Coach & Berth / Seat</div>
-                <div class="ticket-field-val" style="color:#8b0000;">💺 {html.escape(str(coach))} · Seat {html.escape(str(seat))}</div>
-                <div style="font-size:0.75rem; color:#15803d; font-weight:600; margin-top:2px;">{html.escape(str(berth_type))}</div>
+                <div class="ticket-field-label" style="color:#A9BAD3;">Coach & Berth / Seat</div>
+                <div class="ticket-field-val" style="color:#38BDF8;">💺 {html.escape(str(coach))} · Seat {html.escape(str(seat))}</div>
+                <div style="font-size:0.75rem; color:#34D399; font-weight:600; margin-top:2px;">{html.escape(str(berth_type))}</div>
             </div>
             <div class="ticket-field">
-                <div class="ticket-field-label">Train & Class</div>
-                <div class="ticket-field-val">🚆 {html.escape(str(tr_num))}</div>
-                <div style="font-size:0.75rem; color:#64748b; margin-top:2px;">{html.escape(str(cls_name))} ({html.escape(str(quota))})</div>
+                <div class="ticket-field-label" style="color:#A9BAD3;">Train & Class</div>
+                <div class="ticket-field-val" style="color:#F1F5F9;">🚆 {html.escape(str(tr_num))}</div>
+                <div style="font-size:0.75rem; color:#A9BAD3; margin-top:2px;">{html.escape(str(cls_name))} ({html.escape(str(quota))})</div>
             </div>
             <div class="ticket-field">
-                <div class="ticket-field-label">Fare & Security</div>
-                <div class="ticket-field-val">₹{fare:,.2f}</div>
-                <div style="font-size:0.72rem; color:#64748b; font-family:monospace; margin-top:2px;">{html.escape(str(hash_id))}</div>
+                <div class="ticket-field-label" style="color:#A9BAD3;">Fare & Security</div>
+                <div class="ticket-field-val" style="color:#F1F5F9;">₹{fare:,.2f}</div>
+                <div style="font-size:0.72rem; color:#A9BAD3; font-family:monospace; margin-top:2px;">{html.escape(str(hash_id))}</div>
             </div>
         </div>
 
-        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:10px 14px; display:flex; justify-content:space-between; align-items:center;">
+        <div style="background:#0B132B; border:1px solid #2A3B57; border-radius:10px; padding:10px 14px; display:flex; justify-content:space-between; align-items:center;">
             <div>
-                <span style="font-size:0.74rem; font-weight:700; color:#64748b; text-transform:uppercase;">Origin</span>
-                <div style="font-size:0.95rem; font-weight:750; color:#0f172a;">{html.escape(str(origin))}</div>
-                <div style="font-size:0.78rem; color:#475569;">Dep: {html.escape(str(dep_time))} · {html.escape(str(travel_date))}</div>
+                <span style="font-size:0.74rem; font-weight:700; color:#A9BAD3; text-transform:uppercase;">Origin</span>
+                <div style="font-size:0.95rem; font-weight:750; color:#F1F5F9;">{html.escape(str(origin))}</div>
+                <div style="font-size:0.78rem; color:#A9BAD3;">Dep: {html.escape(str(dep_time))} · {html.escape(str(travel_date))}</div>
             </div>
-            <div style="font-size:1.3rem; color:#8b0000; font-weight:700;">➔</div>
+            <div style="font-size:1.3rem; color:#FF4B55; font-weight:700;">➔</div>
             <div style="text-align:right;">
-                <span style="font-size:0.74rem; font-weight:700; color:#64748b; text-transform:uppercase;">Destination</span>
-                <div style="font-size:0.95rem; font-weight:750; color:#0f172a;">{html.escape(str(dest))}</div>
-                <div style="font-size:0.78rem; color:#475569;">Arr: {html.escape(str(arr_time))}</div>
+                <span style="font-size:0.74rem; font-weight:700; color:#A9BAD3; text-transform:uppercase;">Destination</span>
+                <div style="font-size:0.95rem; font-weight:750; color:#F1F5F9;">{html.escape(str(dest))}</div>
+                <div style="font-size:0.78rem; color:#A9BAD3;">Arr: {html.escape(str(arr_time))}</div>
             </div>
         </div>
     </div>

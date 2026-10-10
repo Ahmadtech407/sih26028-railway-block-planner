@@ -50,13 +50,12 @@ def render_my_journeys_page() -> None:
 
     if not ticket:
         # Honest Empty State
-        st.markdown('<div class="rt-card" style="margin-bottom: 1.25rem;">', unsafe_allow_html=True)
         st.markdown(
             """
-            <div style="text-align: center; padding: 2rem 1rem;">
+            <div style="background: #101D37; border: 1px solid #2A3B57; border-radius: 10px; text-align: center; padding: 2rem 1.2rem; margin-bottom: 1.25rem;">
                 <div style="font-size: 2.8rem; margin-bottom: 0.5rem;">🎫</div>
-                <div style="font-size: 1.15rem; font-weight: 700; color: #0F172A; margin-bottom: 0.35rem;">No Active Journey Saved</div>
-                <div style="font-size: 0.85rem; color: #64748B; max-width: 480px; margin: 0 auto 1.5rem auto;">
+                <div style="font-size: 1.15rem; font-weight: 700; color: #F1F5F9; margin-bottom: 0.35rem;">No Active Journey Saved</div>
+                <div style="font-size: 0.85rem; color: #A9BAD3; max-width: 480px; margin: 0 auto;">
                     You do not have any saved railway trips in this session. Enter your 10-digit IRCTC PNR or scan an e-ticket to unlock real-time station alerts, coach positioning, and destination wake-up alarms.
                 </div>
             </div>
@@ -78,19 +77,17 @@ def render_my_journeys_page() -> None:
                 from ui.routing import page_coach_position
                 st.switch_page(page_coach_position)
 
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
 
         # Sign-in prompt for persistent account storage
         if not is_auth:
             st.markdown(
                 """
-                <div class="rt-card" style="background: #F8FAFC; border: 1px dashed #CBD5E1; margin-bottom: 1.25rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-                        <div>
-                            <div style="font-weight: 700; color: #0F172A; font-size: 0.95rem;">🔒 Cloud Storage & Journey History</div>
-                            <div style="font-size: 0.8rem; color: #64748B;">
-                                Sign in to your RailTrack account to securely sync saved PNRs across all your mobile and desktop devices.
-                            </div>
+                <div style="background: #0B132B; border: 1px dashed #2A3B57; border-radius: 10px; padding: 1rem 1.15rem; margin-bottom: 0.75rem;">
+                    <div>
+                        <div style="font-weight: 700; color: #F1F5F9; font-size: 0.95rem;">🔒 Cloud Storage & Journey History</div>
+                        <div style="font-size: 0.8rem; color: #A9BAD3; margin-top:2px;">
+                            Sign in to your RailTrack account to securely sync saved PNRs across all your mobile and desktop devices.
                         </div>
                     </div>
                 </div>
@@ -103,20 +100,22 @@ def render_my_journeys_page() -> None:
                     from ui.routing import page_auth
                     st.switch_page(page_auth)
 
+            st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
+
         # Recently viewed routes
         st.markdown(
             """
-            <div class="rt-card">
+            <div style="background: #101D37; border: 1px solid #2A3B57; border-radius: 10px; padding: 1rem 1.15rem; margin-bottom: 1.25rem;">
                 <div class="rt-card-title">🕒 Recently Searched Routes</div>
-                <div style="font-size: 0.82rem; color: #64748B; margin-bottom: 8px;">Quick-access frequent corridors:</div>
+                <div style="font-size: 0.82rem; color: #A9BAD3; margin-bottom: 10px;">Quick-access frequent corridors:</div>
                 <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <div style="padding: 0.6rem 0.85rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-weight: 600; color: #0F172A; font-size: 0.85rem;">New Delhi (NDLS) → Kanpur Central (CNB)</span>
-                        <span style="font-size: 0.75rem; color: #1E40AF; font-weight: 600;">12004 Shatabdi / 22436 Vande Bharat</span>
+                    <div style="padding: 0.65rem 0.85rem; background: #0D1526; border: 1px solid #2A3B57; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 600; color: #F1F5F9; font-size: 0.85rem;">New Delhi (NDLS) → Kanpur Central (CNB)</span>
+                        <span style="font-size: 0.75rem; color: #38BDF8; font-weight: 600;">12004 Shatabdi / 22436 Vande Bharat</span>
                     </div>
-                    <div style="padding: 0.6rem 0.85rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-weight: 600; color: #0F172A; font-size: 0.85rem;">New Delhi (NDLS) → Jammu Tawi (JAT)</span>
-                        <span style="font-size: 0.75rem; color: #1E40AF; font-weight: 600;">22439 Vande Bharat / 12425 Rajdhani</span>
+                    <div style="padding: 0.65rem 0.85rem; background: #0D1526; border: 1px solid #2A3B57; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 600; color: #F1F5F9; font-size: 0.85rem;">New Delhi (NDLS) → Jammu Tawi (JAT)</span>
+                        <span style="font-size: 0.75rem; color: #38BDF8; font-weight: 600;">22439 Vande Bharat / 12425 Rajdhani</span>
                     </div>
                 </div>
             </div>
@@ -135,8 +134,14 @@ def render_my_journeys_page() -> None:
     seat_num = str(bkg.get("seat_number", "28"))
 
     # Quick Actions Row
-    st.markdown('<div class="rt-card" style="margin-top: 1rem;">', unsafe_allow_html=True)
-    st.markdown('<div class="rt-card-title">⚡ Journey Actions</div>', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div style="background: #101D37; border: 1px solid #2A3B57; border-radius: 10px; padding: 0.85rem 1rem; margin-top: 1rem; margin-bottom: 0.75rem;">
+            <div class="rt-card-title">⚡ Journey Actions</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     b1, b2, b3, b4 = st.columns(4)
     with b1:
@@ -162,8 +167,6 @@ def render_my_journeys_page() -> None:
             st.session_state["verified_ticket"] = None
             st.toast("Journey unlinked.")
             st.rerun()
-
-    st.markdown('</div>', unsafe_allow_html=True)
 
     # Coach formation snapshot
     formation_html = render_coach_formation_html(tr_num, coach_id, seat_num)

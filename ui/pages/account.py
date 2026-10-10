@@ -23,12 +23,18 @@ def render_account_page() -> None:
     user = st.session_state.get("auth_user") or {}
 
     if not is_auth:
-        st.markdown('<div class="rt-card">', unsafe_allow_html=True)
         st.markdown(
             """
-            <div class="rt-card-header">
-                <span class="rt-card-title">🔐 RailTrack Account Authentication</span>
-                <span class="rt-badge rt-badge-reference">SECURE JWT AUTH</span>
+            <div style="background: #101D37; border: 1px solid #2A3B57; border-radius: 10px; padding: 0.85rem 1rem; margin-bottom: 0.75rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                    <div>
+                        <span class="rt-card-title">🔐 RailTrack Account Authentication</span>
+                        <div style="font-size:0.8rem; color:#A9BAD3; margin-top:2px;">
+                            Sign in to sync your bookings, live tracking alarms, and passenger preferences.
+                        </div>
+                    </div>
+                    <span class="rt-badge rt-badge-reference">SECURE JWT AUTH</span>
+                </div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -86,40 +92,39 @@ def render_account_page() -> None:
                             st.rerun()
                         else:
                             st.error(err or "Registration error.")
-
-        st.markdown('</div>', unsafe_allow_html=True)
         return
 
     # If already authenticated:
-    st.markdown('<div class="rt-card">', unsafe_allow_html=True)
     st.markdown(
         f"""
-        <div class="rt-card-header">
-            <div>
-                <span class="rt-card-title">👤 Passenger Profile</span>
-                <div style="font-size:0.8rem; color:#64748B;">Authenticated RailTrack Account</div>
+        <div style="background: #101D37; border: 1px solid #2A3B57; border-radius: 10px; padding: 1.1rem; margin-bottom: 1rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom: 12px;">
+                <div>
+                    <span class="rt-card-title">👤 Passenger Profile</span>
+                    <div style="font-size:0.8rem; color:#A9BAD3;">Authenticated RailTrack Account</div>
+                </div>
+                <div>
+                    {get_provenance_badge_html("VERIFIED LIVE", source="JWT_SESSION_ACTIVE")}
+                </div>
             </div>
-            <div>
-                {get_provenance_badge_html("VERIFIED LIVE", source="JWT_SESSION_ACTIVE")}
-            </div>
-        </div>
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 12px 0;">
-            <div class="rt-metric-pill">
-                <span class="rt-metric-label">Full Name</span>
-                <span class="rt-metric-val" style="font-size:1.0rem;">{html.escape(user.get('name', 'User'))}</span>
-            </div>
-            <div class="rt-metric-pill">
-                <span class="rt-metric-label">Role</span>
-                <span class="rt-metric-val" style="font-size:1.0rem; color:#1E40AF;">{html.escape(user.get('role', 'PASSENGER'))}</span>
-            </div>
-            <div class="rt-metric-pill">
-                <span class="rt-metric-label">Account ID</span>
-                <span class="rt-metric-val" style="font-size:0.9rem;">{html.escape(str(user.get('id', 'USR-01')))}</span>
-            </div>
-            <div class="rt-metric-pill">
-                <span class="rt-metric-label">Session Status</span>
-                <span class="rt-metric-val" style="font-size:0.9rem; color:#059669;">AUTHENTICATED</span>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 12px 0;">
+                <div class="rt-metric-pill" style="background:#0D1526; border:1px solid #2A3B57;">
+                    <span class="rt-metric-label" style="color:#A9BAD3;">Full Name</span>
+                    <span class="rt-metric-val" style="font-size:1.0rem; color:#F1F5F9;">{html.escape(user.get('name', 'User'))}</span>
+                </div>
+                <div class="rt-metric-pill" style="background:#0D1526; border:1px solid #2A3B57;">
+                    <span class="rt-metric-label" style="color:#A9BAD3;">Role</span>
+                    <span class="rt-metric-val" style="font-size:1.0rem; color:#38BDF8;">{html.escape(user.get('role', 'PASSENGER'))}</span>
+                </div>
+                <div class="rt-metric-pill" style="background:#0D1526; border:1px solid #2A3B57;">
+                    <span class="rt-metric-label" style="color:#A9BAD3;">Account ID</span>
+                    <span class="rt-metric-val" style="font-size:0.9rem; color:#F1F5F9;">{html.escape(str(user.get('id', 'USR-01')))}</span>
+                </div>
+                <div class="rt-metric-pill" style="background:#0D1526; border:1px solid #2A3B57;">
+                    <span class="rt-metric-label" style="color:#A9BAD3;">Session Status</span>
+                    <span class="rt-metric-val" style="font-size:0.9rem; color:#34D399;">AUTHENTICATED</span>
+                </div>
             </div>
         </div>
         """,
@@ -127,8 +132,7 @@ def render_account_page() -> None:
     )
 
     # Preferences & Controls
-    st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="rt-card-title" style="font-size:0.95rem;">⚙️ Passenger Preferences</div>', unsafe_allow_html=True)
+    st.markdown('<div class="rt-card-title" style="font-size:0.95rem; margin-top:0.5rem; margin-bottom:0.5rem;">⚙️ Passenger Preferences</div>', unsafe_allow_html=True)
 
     pref_col1, pref_col2 = st.columns(2)
     with pref_col1:
@@ -146,8 +150,6 @@ def render_account_page() -> None:
             sign_out()
             st.toast("Signed out successfully.")
             st.rerun()
-
-    st.markdown('</div>', unsafe_allow_html=True)
 
 
 if __name__ == "__main__":

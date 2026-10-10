@@ -24,15 +24,18 @@ def render_pnr_page() -> None:
     if "verified_ticket" not in st.session_state:
         st.session_state.verified_ticket = None
 
-    st.markdown('<div class="rt-card">', unsafe_allow_html=True)
     st.markdown(
         """
-        <div class="rt-card-header">
-            <span class="rt-card-title">🎫 PNR Status & Boarding Pass Verification</span>
-            <span class="rt-badge rt-badge-live">IRCTC MANIFEST VERIFIED</span>
-        </div>
-        <div style="font-size:0.85rem; color:#64748B; margin-bottom:12px;">
-            Enter your 10-digit Indian Railways PNR to check current booking status, coach allotment, and berth type.
+        <div style="background: #101D37; border: 1px solid #2A3B57; border-radius: 10px; padding: 0.85rem 1rem; margin-bottom: 0.75rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <div>
+                    <span class="rt-card-title">🎫 PNR Status & Boarding Pass Verification</span>
+                    <div style="font-size:0.8rem; color:#A9BAD3; margin-top:2px;">
+                        Enter your 10-digit Indian Railways PNR to check current booking status, coach allotment, and berth type.
+                    </div>
+                </div>
+                <span class="rt-badge rt-badge-live">IRCTC MANIFEST VERIFIED</span>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -105,8 +108,6 @@ def render_pnr_page() -> None:
             if st.button("🎫 1948201948 (Shatabdi C4/12)", use_container_width=True, key="pnr_demo_3"):
                 st.session_state.verified_ticket = fetch_ticket("1948201948")
                 st.rerun()
-
-    st.markdown('</div>', unsafe_allow_html=True)
 
     # Display Verified Ticket Card if exists
     ticket = st.session_state.get("verified_ticket")
