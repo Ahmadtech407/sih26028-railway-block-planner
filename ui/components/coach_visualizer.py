@@ -1,6 +1,7 @@
 """
 Coach Formation & Seat Map Visualizer.
-Renders authentic Indian Railways rake compositions, coach positions relative to engine, and seat maps.
+Renders authentic Indian Railways rake compositions, coach positions relative to engine,
+and seat maps using ixigo-style visualizer patterns and clean zero-indentation HTML.
 """
 
 import os
@@ -8,6 +9,8 @@ import json
 import html
 from typing import Dict, Any, Optional
 import streamlit as st
+
+from ui.theme import clean_html
 
 
 COACH_DATA_FILE = os.path.normpath(
@@ -42,6 +45,26 @@ def load_coach_formations() -> Dict[str, Any]:
     return {}
 
 
+def _get_coach_badge_color(coach_class: str, coach_type: str) -> str:
+    """Return authentic color signature for coach classes inspired by ixigo."""
+    c_upper = str(coach_class or "").upper()
+    t_upper = str(coach_type or "").upper()
+
+    if t_upper == "LOCOMOTIVE":
+        return "#334155"
+    if "1A" in c_upper or "EC" in c_upper:
+        return "#D97706"  # Gold / Amber for First Class / Exec
+    if "2A" in c_upper:
+        return "#7C3AED"  # Purple / Indigo for 2-Tier AC
+    if "3A" in c_upper or "3E" in c_upper or "CC" in c_upper:
+        return "#0284C7"  # Cyan / Blue for 3-Tier AC / Chair Car
+    if "SL" in c_upper:
+        return "#1D4ED8"  # Royal Blue for Sleeper
+    if "PC" in c_upper or "PANTRY" in t_upper:
+        return "#DC2626"  # Crimson for Pantry
+    return "#475569"      # Slate for General / Unreserved / SLR
+
+
 def render_coach_formation_html(train_number: str, coach_id: str, seat_number: str = "") -> str:
     """Renders train-specific coach formation with exact coach index and verification status."""
     formations = load_coach_formations()
@@ -51,18 +74,18 @@ def render_coach_formation_html(train_number: str, coach_id: str, seat_number: s
     c_id = str(coach_id).strip().upper()
     s_num = str(seat_number).strip()
 
-    import textwrap
     if not formation or formation.get("verificationStatus") == "UNAVAILABLE" or not formation.get("coaches"):
-        return textwrap.dedent(f"""
-<div class="rt-card" style="text-align:center; background:rgba(239, 68, 68, 0.15); border:1px solid rgba(239, 68, 68, 0.4);">
-    <div style="font-size:1.6rem; margin-bottom:6px;">⚠️</div>
-    <div style="font-size:0.95rem; font-weight:700; color:#F87171; margin-bottom:4px;">Coach Formation Unavailable</div>
-    <div style="font-size:0.8rem; color:#A9BAD3; line-height:1.5;">
-        Published rake formation data is currently unavailable for Train <b>{html.escape(t_key)}</b>.<br>
-        Coach position is not estimated to avoid misleading station platform navigation.
-    </div>
-</div>
-""").strip()
+        card = (
+            f'<div class="rt-card" style="text-align:center; background:rgba(239, 68, 68, 0.15); border:1px solid rgba(239, 68, 68, 0.4);">'
+            f'  <div style="font-size:1.6rem; margin-bottom:6px;">⚠️</div>'
+            f'  <div style="font-size:0.95rem; font-weight:700; color:#F87171; margin-bottom:4px;">Coach Formation Unavailable</div>'
+            f'  <div style="font-size:0.8rem; color:#A9BAD3; line-height:1.5;">'
+            f'    Published rake formation data is currently unavailable for Train <b>{html.escape(t_key)}</b>.<br>'
+            f'    Coach position is not estimated to avoid misleading station platform navigation.'
+            f'  </div>'
+            f'</div>'
+        )
+        return clean_html(card)
 
     coaches = formation.get("coaches", [])
     exact_index = -1
@@ -71,101 +94,103 @@ def render_coach_formation_html(train_number: str, coach_id: str, seat_number: s
             exact_index = i
             break
 
-    strip_html = ""
+    strip_html_list = []
     for idx, c in enumerate(coaches):
         is_highlight = (exact_index != -1 and str(c.get("coachId", "")).upper() == c_id)
         is_loco = (c.get("type") == "LOCOMOTIVE")
         lbl = html.escape(str(c.get("displayLabel", c.get("coachId"))))
-        cls_lbl = html.escape(str(c.get("class") or ("Loco" if is_loco else c.get("type")[:2])))
+        raw_class = str(c.get("class") or ("Loco" if is_loco else c.get("type")[:2]))
+        cls_lbl = html.escape(raw_class)
+        accent_color = _get_coach_badge_color(c.get("class", ""), c.get("type", ""))
 
         if is_highlight:
             body_class = "rt-rake-coach selected"
             pointer = '<div style="position:absolute; top:-16px; left:50%; transform:translateX(-50%); font-size:0.6rem; font-weight:800; color:#38BDF8;">YOU ▼</div>'
+            border_style = "border-color: #38BDF8; box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.35);"
         elif is_loco:
             body_class = "rt-rake-coach loco"
             pointer = ""
+            border_style = f"border-color: {accent_color};"
         else:
             body_class = "rt-rake-coach"
             pointer = ""
+            border_style = f"border-top: 3px solid {accent_color};"
 
-        strip_html += f"""
-        <div style="display:flex; flex-direction:column; align-items:center; flex-shrink:0; position:relative;">
-            {pointer}
-            <div class="{body_class}">{lbl}</div>
-            <div class="rt-rake-class">{cls_lbl}</div>
-        </div>
-        """
+        strip_html_list.append(
+            f'<div style="display:flex; flex-direction:column; align-items:center; flex-shrink:0; position:relative;">'
+            f'  {pointer}'
+            f'  <div class="{body_class}" style="{border_style}">{lbl}</div>'
+            f'  <div class="rt-rake-class" style="color:{accent_color}; font-weight:700;">{cls_lbl}</div>'
+            f'</div>'
+        )
 
-    v_status = str(formation.get("verificationStatus", "VERIFIED")).upper()
+    strip_html = "".join(strip_html_list)
     total_coaches = len(coaches)
 
     if exact_index == -1:
         known = ", ".join(c.get("coachId", "") for c in coaches if c.get("type") != "LOCOMOTIVE")
-        return textwrap.dedent(f"""
-<div class="rt-card">
-    <div style="margin-bottom:8px; font-weight:700; color:#FBBF24;">
-        ⚠️ Coach "{html.escape(c_id)}" not found in Train {html.escape(t_key)}
-    </div>
-    <div style="font-size:0.8rem; color:#A9BAD3; margin-bottom:12px;">
-        Verified coaches in this rake: <b>{html.escape(known)}</b>
-    </div>
-    <div class="rt-card-header">
-        <span class="rt-card-title">🚃 Train {html.escape(t_key)} Formation ({total_coaches} Coaches)</span>
-        <span class="rt-badge rt-badge-historical">VERIFIED RAKE</span>
-    </div>
-    <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:#A9BAD3; font-weight:600; text-transform:uppercase;">
-        <span>← Engine (Locomotive)</span>
-        <span>Guard / Rear →</span>
-    </div>
-    <div class="rt-rake-diagram">
-        {strip_html}
-    </div>
-</div>
-""").strip()
+        card = (
+            f'<div class="rt-card">'
+            f'  <div style="margin-bottom:8px; font-weight:700; color:#FBBF24;">'
+            f'    ⚠️ Coach "{html.escape(c_id)}" not found in Train {html.escape(t_key)}'
+            f'  </div>'
+            f'  <div style="font-size:0.8rem; color:#A9BAD3; margin-bottom:12px;">'
+            f'    Verified coaches in this rake: <b>{html.escape(known)}</b>'
+            f'  </div>'
+            f'  <div class="rt-card-header">'
+            f'    <span class="rt-card-title">🚃 Train {html.escape(t_key)} Formation ({total_coaches} Coaches)</span>'
+            f'    <span class="rt-badge rt-badge-historical">VERIFIED RAKE</span>'
+            f'  </div>'
+            f'  <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:#A9BAD3; font-weight:600; text-transform:uppercase;">'
+            f'    <span>← Engine (Locomotive)</span>'
+            f'    <span>Guard / Rear →</span>'
+            f'  </div>'
+            f'  <div class="rt-rake-diagram">{strip_html}</div>'
+            f'</div>'
+        )
+        return clean_html(card)
 
     ratio = exact_index / max(1, total_coaches - 1)
     if ratio <= 0.33:
-        rel_pos = "Front Section (Near Engine)"
+        rel_pos = "Front Section (Near Locomotive)"
     elif ratio <= 0.66:
-        rel_pos = "Middle Section"
+        rel_pos = "Middle Section (Near Center)"
     else:
-        rel_pos = "Rear Section (Near Guard)"
+        rel_pos = "Rear Section (Near Brake Van)"
 
     seat_sub = f" · Seat <b>{html.escape(s_num)}</b>" if s_num else ""
-    return textwrap.dedent(f"""
-<div class="rt-card">
-    <div class="rt-card-header">
-        <span class="rt-card-title">🚃 Train {html.escape(t_key)} Verified Rake Formation</span>
-        <span class="rt-badge rt-badge-live">VERIFIED FORMATION</span>
-    </div>
-    <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:#A9BAD3; font-weight:600; text-transform:uppercase;">
-        <span>← Locomotive (Front)</span>
-        <span>Brake Van / Rear →</span>
-    </div>
-    <div class="rt-rake-diagram">
-        {strip_html}
-    </div>
-    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin-top:12px; background:#0B1730; border:1px solid #2A3B57; border-radius:8px; padding:12px;">
-        <div>
-            <div class="rt-metric-label">Coach</div>
-            <div class="rt-metric-val" style="color:#38BDF8;">{html.escape(c_id)}{seat_sub}</div>
-        </div>
-        <div>
-            <div class="rt-metric-label">Position from Engine</div>
-            <div class="rt-metric-val">{exact_index + 1} of {total_coaches}</div>
-        </div>
-        <div>
-            <div class="rt-metric-label">Platform Location</div>
-            <div style="font-size:0.95rem; font-weight:700; color:#F1F5F9; margin-top:2px;">{rel_pos}</div>
-        </div>
-    </div>
-</div>
-""").strip()
+    card = (
+        f'<div class="rt-card">'
+        f'  <div class="rt-card-header">'
+        f'    <span class="rt-card-title">🚃 Train {html.escape(t_key)} Verified Rake Formation</span>'
+        f'    <span class="rt-badge rt-badge-live">VERIFIED FORMATION</span>'
+        f'  </div>'
+        f'  <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:#A9BAD3; font-weight:600; text-transform:uppercase;">'
+        f'    <span>← Locomotive (Front End)</span>'
+        f'    <span>Brake Van / Rear End →</span>'
+        f'  </div>'
+        f'  <div class="rt-rake-diagram">{strip_html}</div>'
+        f'  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin-top:12px; background:#0B1730; border:1px solid #2A3B57; border-radius:8px; padding:12px;">'
+        f'    <div>'
+        f'      <div class="rt-metric-label">Coach Allotted</div>'
+        f'      <div class="rt-metric-val" style="color:#38BDF8;">{html.escape(c_id)}{seat_sub}</div>'
+        f'    </div>'
+        f'    <div>'
+        f'      <div class="rt-metric-label">Position from Engine</div>'
+        f'      <div class="rt-metric-val">{exact_index + 1} of {total_coaches}</div>'
+        f'    </div>'
+        f'    <div>'
+        f'      <div class="rt-metric-label">Platform Location</div>'
+        f'      <div style="font-size:0.95rem; font-weight:700; color:#F8FAFC; margin-top:2px;">{rel_pos}</div>'
+        f'    </div>'
+        f'  </div>'
+        f'</div>'
+    )
+    return clean_html(card)
 
 
 def render_coach_seat_map_html(train_number: str, coach_id: str, seat_number: str = "") -> str:
     """Renders interactive coach interior seat map with highlighted passenger seat."""
-    import textwrap
     c_id = str(coach_id).strip().upper()
     s_clean = str(seat_number).strip()
     is_cc = c_id.startswith("C") or c_id.startswith("E")
@@ -184,37 +209,40 @@ def render_coach_seat_map_html(train_number: str, coach_id: str, seat_number: st
             [("4 LB", "4"), ("5 MB", "5"), ("6 UB", "6"), ("15 SL", "15"), ("16 SU", "16")],
         ]
 
-    rows_html = ""
+    rows_html_list = []
     for r in rows:
-        left_seats = ""
+        left_seats = []
         for lbl, num in r[:3]:
-            sel = "background:#059669; color:#FFF; font-weight:800;" if num == s_clean else "background:#162640; color:#F1F5F9;"
-            left_seats += f'<span style="{sel} padding:4px 8px; border-radius:4px; font-size:0.75rem; border:1px solid #2A3B57;">{lbl}</span>'
+            sel = "background:#059669; color:#FFF; font-weight:800; border-color:#34D399;" if num == s_clean else "background:#162640; color:#F1F5F9; border-color:#2A3B57;"
+            left_seats.append(f'<span style="{sel} padding:4px 8px; border-radius:4px; font-size:0.75rem; border:1px solid;">{lbl}</span>')
 
-        right_seats = ""
+        right_seats = []
         for lbl, num in r[3:]:
-            sel = "background:#059669; color:#FFF; font-weight:800;" if num == s_clean else "background:#162640; color:#F1F5F9;"
-            right_seats += f'<span style="{sel} padding:4px 8px; border-radius:4px; font-size:0.75rem; border:1px solid #2A3B57;">{lbl}</span>'
+            sel = "background:#059669; color:#FFF; font-weight:800; border-color:#34D399;" if num == s_clean else "background:#162640; color:#F1F5F9; border-color:#2A3B57;"
+            right_seats.append(f'<span style="{sel} padding:4px 8px; border-radius:4px; font-size:0.75rem; border:1px solid;">{lbl}</span>')
 
-        rows_html += f"""
-        <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0;">
-            <div style="display:flex; gap:6px;">{left_seats}</div>
-            <span style="font-size:0.65rem; color:#A9BAD3; text-transform:uppercase;">Aisle</span>
-            <div style="display:flex; gap:6px;">{right_seats}</div>
-        </div>
-        """
+        rows_html_list.append(
+            f'<div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0;">'
+            f'  <div style="display:flex; gap:6px;">{"".join(left_seats)}</div>'
+            f'  <span style="font-size:0.65rem; color:#A9BAD3; text-transform:uppercase;">Aisle</span>'
+            f'  <div style="display:flex; gap:6px;">{"".join(right_seats)}</div>'
+            f'</div>'
+        )
 
-    return textwrap.dedent(f"""
-<div class="rt-card" style="margin-top:10px;">
-    <div class="rt-card-header">
-        <span class="rt-card-title">💺 Coach {html.escape(c_id)} Interior Layout ({layout_name})</span>
-        <span class="rt-badge rt-badge-reference">SEAT MAP</span>
-    </div>
-    <div style="max-width:340px; margin:0 auto; padding:8px 0;">
-        {rows_html}
-    </div>
-    <div style="font-size:0.7rem; color:#A9BAD3; text-align:center; margin-top:8px;">
-        ⚡ Power Outlets Under Armrest · 🚻 Toilets at Both Vestibule Ends
-    </div>
-</div>
-""").strip()
+    rows_html = "".join(rows_html_list)
+    card = (
+        f'<div class="rt-card" style="margin-top:10px;">'
+        f'  <div class="rt-card-header">'
+        f'    <span class="rt-card-title">💺 Coach {html.escape(c_id)} Interior Layout ({layout_name})</span>'
+        f'    <span class="rt-badge rt-badge-reference">SEAT MAP</span>'
+        f'  </div>'
+        f'  <div style="max-width:340px; margin:0 auto; padding:8px 0;">'
+        f'    {rows_html}'
+        f'  </div>'
+        f'  <div style="font-size:0.7rem; color:#A9BAD3; text-align:center; margin-top:8px;">'
+        f'    ⚡ Power Outlets Under Armrest · 🚻 Toilets at Both Vestibule Ends'
+        f'  </div>'
+        f'</div>'
+    )
+    return clean_html(card)
+

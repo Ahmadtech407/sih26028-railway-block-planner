@@ -6,6 +6,7 @@ Dedicated discovery experience for searching trains, schedules, departure/arriva
 from datetime import date
 import streamlit as st
 
+from ui.theme import clean_html
 from ui.components.header import render_app_header
 from ui.components.train_cards import render_train_card
 from ui.components.provenance import get_provenance_badge_html
@@ -24,30 +25,28 @@ STATION_OPTIONS = [
 
 
 def render_trains_page() -> None:
-    """Render the train discovery and search page."""
+    """Render the train discovery and search page inspired by IRCTC & ConfirmTkt."""
     render_app_header()
 
-    st.markdown(
-        """
-        <div style="background: #101D37; border: 1px solid #2A3B57; border-radius: 10px; padding: 0.85rem 1rem; margin-bottom: 0.75rem;">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-                <div>
-                    <span class="rt-card-title">🔍 Search Trains Across Corridors</span>
-                    <div style="font-size:0.8rem; color:#A9BAD3; margin-top:2px;">
-                        Explore schedules, arrival/departure timings, and live train run frequencies.
-                    </div>
-                </div>
-                <span class="rt-badge rt-badge-reference">TIMETABLE DIRECTORY</span>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    header_html = (
+        '<div style="background: #101D37; border: 1px solid #2A3B57; border-radius: 10px; padding: 0.85rem 1rem; margin-bottom: 0.75rem;">'
+        '  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">'
+        '    <div>'
+        '      <span class="rt-card-title">🔍 Search Trains Across Monitored Corridors</span>'
+        '      <div style="font-size:0.8rem; color:#A9BAD3; margin-top:2px;">'
+        '        Explore schedules, class availability, live fares, and ConfirmTkt prediction confidence.'
+        '      </div>'
+        '    </div>'
+        '    <span class="rt-badge rt-badge-reference">IRCTC TIMETABLES</span>'
+        '  </div>'
+        '</div>'
     )
+    st.markdown(clean_html(header_html), unsafe_allow_html=True)
 
     c1, c_swap, c2, c3 = st.columns([4, 1, 4, 3])
 
     default_from = st.session_state.get("passenger_from", "New Delhi (NDLS)")
-    default_to = st.session_state.get("passenger_to", "Jammu Tawi (JAT)")
+    default_to = st.session_state.get("passenger_to", "Kanpur Central (CNB)")
 
     with c1:
         src = st.selectbox(
@@ -76,9 +75,26 @@ def render_trains_page() -> None:
             key="trains_date_input",
         )
 
+    col_q, col_s = st.columns([1, 1])
+    with col_q:
+        default_quota = st.session_state.get("passenger_quota", "General (GN)")
+        quota_choice = st.pills(
+            "Quota",
+            ["General (GN)", "Tatkal (TQ)", "Ladies (LD)", "Sr. Citizen (SS)"],
+            default=default_quota if default_quota in ["General (GN)", "Tatkal (TQ)", "Ladies (LD)", "Sr. Citizen (SS)"] else "General (GN)",
+            key="trains_quota_pills",
+        )
+    with col_s:
+        sort_choice = st.pills(
+            "Sort By",
+            ["⚡ Fastest", "🌅 Departure Time", "🎟️ Seat Availability"],
+            default="⚡ Fastest",
+            key="trains_sort_pills",
+        )
+
     st_filter = st.text_input(
-        "Filter by Train Number or Name (Optional)",
-        placeholder="e.g., 22436, Vande Bharat, Rajdhani, Shram Shakti",
+        "Search by Train Number or Name",
+        placeholder="e.g. 22436, Vande Bharat, Rajdhani, Shram Shakti",
         key="trains_text_filter",
     )
 
@@ -109,20 +125,23 @@ def render_trains_page() -> None:
         if not filter_query or (filter_query in t_num or filter_query in t_name):
             matched_trains.append(t)
 
+    # Sort trains based on user choice
+    if sort_choice == "⚡ Fastest":
+        matched_trains.sort(key=lambda x: x.get("speed_kmph", 0), reverse=True)
+    elif sort_choice == "🌅 Departure Time":
+        matched_trains.sort(key=lambda x: x.get("entry_time", "99:99"))
+
     # Render Results Header
-    st.markdown(
-        f"""
-        <div style="display: flex; justify-content: space-between; align-items: baseline; margin: 1.25rem 0 0.75rem 0;">
-            <div style="font-size: 1.1rem; font-weight: 700; color: #F1F5F9;">
-                Available Trains ({len(matched_trains)})
-            </div>
-            <div>
-                {get_provenance_badge_html("REFERENCE DATA", source="INDIAN_RAILWAYS_TIMETABLE")}
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    count_badge = get_provenance_badge_html("REFERENCE DATA", source="INDIAN_RAILWAYS_TIMETABLE")
+    res_header_html = (
+        f'<div style="display: flex; justify-content: space-between; align-items: baseline; margin: 1.25rem 0 0.75rem 0;">'
+        f'  <div style="font-size: 1.1rem; font-weight: 700; color: #F1F5F9;">'
+        f'    Available Trains ({len(matched_trains)}) · Quota: <span style="color:#38BDF8;">{quota_choice}</span>'
+        f'  </div>'
+        f'  <div>{count_badge}</div>'
+        f'</div>'
     )
+    st.markdown(clean_html(res_header_html), unsafe_allow_html=True)
 
     if not matched_trains:
         st.info("No trains match your search criteria. Please adjust your source, destination, or train filter.")

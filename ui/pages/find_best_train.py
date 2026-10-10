@@ -9,6 +9,7 @@ from datetime import datetime, date, time
 import html
 import streamlit as st
 
+from ui.theme import clean_html
 from ui.components.header import render_app_header
 from ui.components.provenance import get_provenance_badge_html
 
@@ -29,28 +30,26 @@ def render_find_best_train_page() -> None:
     """Render the dedicated Find Best Train and AI Journey Assistant page."""
     render_app_header()
 
-    st.markdown(
-        """
-        <div style="background: linear-gradient(135deg, #071530 0%, #1E40AF 100%); border-radius: 14px; padding: 1.5rem 1.25rem; color: #FFFFFF; margin-bottom: 1.5rem; box-shadow: 0 4px 16px rgba(7, 21, 48, 0.15);">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
-                <div>
-                    <div style="font-size: 1.5rem; font-weight: 800; margin-bottom: 0.35rem; letter-spacing: -0.02em;">
-                        🤖 Find Best Train — AI Journey Assistant
-                    </div>
-                    <div style="font-size: 0.85rem; color: #BFDBFE; font-weight: 500;">
-                        IST Timezone-Aware · Anti-Hallucination Timetable Search · Dynamic ML Delay Ranking
-                    </div>
-                </div>
-                <div>
-                    <span style="background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.3); padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; color: #FFFFFF;">
-                        VERIFIED TIMETABLES + ML
-                    </span>
-                </div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    hero_html = (
+        '<div style="background: linear-gradient(135deg, #071530 0%, #1E40AF 100%); border-radius: 14px; padding: 1.5rem 1.25rem; color: #FFFFFF; margin-bottom: 1.5rem; box-shadow: 0 4px 16px rgba(7, 21, 48, 0.15);">'
+        '  <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">'
+        '    <div>'
+        '      <div style="font-size: 1.5rem; font-weight: 800; margin-bottom: 0.35rem; letter-spacing: -0.02em;">'
+        '        🤖 Find Best Train — AI Journey Assistant'
+        '      </div>'
+        '      <div style="font-size: 0.85rem; color: #BFDBFE; font-weight: 500;">'
+        '        IST Timezone-Aware · Anti-Hallucination Timetable Search · Dynamic ML Delay Ranking'
+        '      </div>'
+        '    </div>'
+        '    <div>'
+        '      <span style="background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.3); padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; color: #FFFFFF;">'
+        '        VERIFIED TIMETABLES + ML'
+        '      </span>'
+        '    </div>'
+        '  </div>'
+        '</div>'
     )
+    st.markdown(clean_html(hero_html), unsafe_allow_html=True)
 
     # 1. Search Query & Parameters Form
     with st.container():

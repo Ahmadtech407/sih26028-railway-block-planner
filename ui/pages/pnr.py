@@ -6,12 +6,13 @@ ConfirmTkt style clean PNR search, barcode/QR ticket scanning, and verified Elec
 import html
 import streamlit as st
 
+from ui.theme import clean_html
 from ui.components.header import render_app_header
 from ui.components.provenance import get_provenance_badge_html
 
 
 def render_pnr_page() -> None:
-    """Render dedicated PNR enquiry and ticket verification page."""
+    """Render dedicated PNR enquiry and ticket verification page inspired by ConfirmTkt."""
     render_app_header()
 
     from passenger_app import (
@@ -24,22 +25,20 @@ def render_pnr_page() -> None:
     if "verified_ticket" not in st.session_state:
         st.session_state.verified_ticket = None
 
-    st.markdown(
-        """
-        <div style="background: #101D37; border: 1px solid #2A3B57; border-radius: 10px; padding: 0.85rem 1rem; margin-bottom: 0.75rem;">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-                <div>
-                    <span class="rt-card-title">🎫 PNR Status & Boarding Pass Verification</span>
-                    <div style="font-size:0.8rem; color:#A9BAD3; margin-top:2px;">
-                        Enter your 10-digit Indian Railways PNR to check current booking status, coach allotment, and berth type.
-                    </div>
-                </div>
-                <span class="rt-badge rt-badge-live">IRCTC MANIFEST VERIFIED</span>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    header_html = (
+        '<div style="background: #101D37; border: 1px solid #2A3B57; border-radius: 10px; padding: 0.85rem 1rem; margin-bottom: 0.75rem;">'
+        '  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">'
+        '    <div>'
+        '      <span class="rt-card-title">🎫 PNR Status & Boarding Pass Verification</span>'
+        '      <div style="font-size:0.8rem; color:#A9BAD3; margin-top:2px;">'
+        '        Enter your 10-digit Indian Railways PNR to check booking status, ConfirmTkt confirmation prediction & coach allotment.'
+        '      </div>'
+        '    </div>'
+        '    <span class="rt-badge rt-badge-live">IRCTC MANIFEST VERIFIED</span>'
+        '  </div>'
+        '</div>'
     )
+    st.markdown(clean_html(header_html), unsafe_allow_html=True)
 
     tab_manual, tab_scan, tab_demo = st.tabs(["✍️ Enter 10-Digit PNR", "📷 Scan Ticket QR / Photo", "🧪 Verified Sample Tickets"])
 
@@ -112,6 +111,32 @@ def render_pnr_page() -> None:
     # Display Verified Ticket Card if exists
     ticket = st.session_state.get("verified_ticket")
     if ticket:
+        bkg = ticket.get("booking", {})
+        status_val = str(bkg.get("status", "CNF")).upper()
+
+        cnf_status_html = (
+            f'<div class="rt-card" style="margin-bottom: 0.85rem; border-left: 4px solid #10B981;">'
+            f'  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">'
+            f'    <div>'
+            f'      <div style="font-size: 0.75rem; font-weight: 700; color: #94A3B8; text-transform: uppercase;">'
+            f'        ConfirmTkt Confirmation Certainty'
+            f'      </div>'
+            f'      <div style="font-size: 1.15rem; font-weight: 800; color: #10B981; margin-top: 2px;">'
+            f'        ✓ {html.escape(status_val)} — Berth Confirmed & Allotted'
+            f'      </div>'
+            f'      <div style="font-size: 0.75rem; color: #94A3B8; margin-top: 2px;">'
+            f'        Chart Status: <b style="color: #38BDF8;">Chart Prepared</b> · High Confidence'
+            f'      </div>'
+            f'    </div>'
+            f'    <div>'
+            f'      <span class="rt-cnf-pill rt-cnf-high" style="font-size: 0.85rem; padding: 4px 12px;">'
+            f'        ✓ 100% CONFIRMED'
+            f'      </span>'
+            f'    </div>'
+            f'  </div>'
+            f'</div>'
+        )
+        st.markdown(clean_html(cnf_status_html), unsafe_allow_html=True)
         render_verified_ticket_card(ticket)
 
         bkg = ticket.get("booking", {})

@@ -19,7 +19,7 @@ st.set_page_config(
     page_title="RailTrack — Railway Travel & Operations Platform",
     page_icon="🚆",
     layout="wide",
-    initial_sidebar_state="auto",
+    initial_sidebar_state="expanded",
 )
 
 from ui.theme import inject_custom_theme
@@ -91,8 +91,50 @@ st.markdown(
         }
     }
 
-    #MainMenu, footer, header {
+    #MainMenu, footer {
         visibility: hidden !important;
+    }
+
+    /* Keep Streamlit header transparent so the sidebar collapse/reopen button is always accessible */
+    header[data-testid="stHeader"] {
+        background: transparent !important;
+        height: 2.75rem !important;
+        z-index: 999990 !important;
+        pointer-events: none !important;
+    }
+
+    header[data-testid="stHeader"] * {
+        pointer-events: auto !important;
+    }
+
+    /* Style the sidebar reopen toggle button so it never disappears when collapsed */
+    [data-testid="collapsedControl"] {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        position: fixed !important;
+        top: 0.65rem !important;
+        left: 0.75rem !important;
+        z-index: 999999 !important;
+        background: #101D37 !important;
+        border: 1px solid #2A3B57 !important;
+        border-radius: 8px !important;
+        padding: 6px 10px !important;
+        color: #38BDF8 !important;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45) !important;
+        cursor: pointer !important;
+        transition: all 0.2s ease !important;
+    }
+
+    [data-testid="collapsedControl"]:hover {
+        background: #162640 !important;
+        border-color: #38BDF8 !important;
+        box-shadow: 0 6px 18px rgba(56, 189, 248, 0.3) !important;
+    }
+
+    [data-testid="collapsedControl"] svg {
+        fill: #38BDF8 !important;
+        stroke: #38BDF8 !important;
     }
 
     div[data-testid="stToolbar"] {

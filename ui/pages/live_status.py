@@ -12,6 +12,7 @@ import html
 import plotly.graph_objects as go
 import streamlit as st
 
+from ui.theme import clean_html
 from ui.components.header import render_app_header
 from ui.components.provenance import get_provenance_badge_html
 from ui.components.station_stepper import render_station_stepper_html
@@ -95,56 +96,50 @@ def render_live_status_page() -> None:
     badge_label = "VERIFIED LIVE" if prov_status in ("LIVE_GPS", "GOVT_OF_INDIA_CRIS", "GOVT_CRIS_NTES") else ("PREDICTED" if prov_status == "KINEMATIC_DEAD_RECKONING" else "DEMO DATA")
 
     # 1. Real-time Telemetry Overview Bar
-    import textwrap
-    st.markdown(
-        textwrap.dedent(f"""
-<div class="rt-card" style="margin-bottom: 1.25rem;">
-    <div class="rt-card-header">
-        <div>
-            <span style="font-size: 1.35rem; font-weight: 800; color: #F1F5F9;">🚆 {html.escape(str(tr_num))} {html.escape(str(tr_name))}</span>
-            <div style="font-size: 0.8rem; color: #A9BAD3; margin-top: 2px;">
-                Route: <b style="color:#F1F5F9;">{html.escape(str(train.get('passenger_from', 'Origin')))} → {html.escape(str(train.get('passenger_to', 'Destination')))}</b>
-            </div>
-        </div>
-        <div>
-            {get_provenance_badge_html(badge_label, source=prov_status)}
-        </div>
-    </div>
-
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 0.75rem;">
-        <div class="rt-metric-pill">
-            <span class="rt-metric-label">Current Location</span>
-            <span class="rt-metric-val" style="font-size: 0.95rem; color: #F1F5F9;">{html.escape(str(curr_stn_label))}</span>
-        </div>
-        <div class="rt-metric-pill">
-            <span class="rt-metric-label">Next Station</span>
-            <span class="rt-metric-val" style="font-size: 0.95rem; color: #38BDF8;">{html.escape(str(next_stn_label))}</span>
-        </div>
-        <div class="rt-metric-pill">
-            <span class="rt-metric-label">Distance to Next</span>
-            <span class="rt-metric-val" style="font-size: 0.95rem;">{f"{dist_next} km" if dist_next is not None else "--"}</span>
-        </div>
-        <div class="rt-metric-pill">
-            <span class="rt-metric-label">Current Speed</span>
-            <span class="rt-metric-val" style="font-size: 0.95rem; color: #38BDF8;">{speed} km/h</span>
-        </div>
-        <div class="rt-metric-pill">
-            <span class="rt-metric-label">Running Delay</span>
-            <span class="rt-metric-val" style="font-size: 0.95rem; color: {'#EF4444' if delay > 0 else '#10B981'};">
-                {'+' + str(delay) + ' min' if delay > 0 else 'On Time'}
-            </span>
-        </div>
-        <div class="rt-metric-pill">
-            <span class="rt-metric-label">Destination ETA</span>
-            <span class="rt-metric-val" style="font-size: 0.95rem; color: #10B981;">
-                {str(dest_eta) + ' min' if dest_eta is not None else '--'}
-            </span>
-        </div>
-    </div>
-</div>
-""").strip(),
-        unsafe_allow_html=True,
+    telemetry_html = (
+        f'<div class="rt-card" style="margin-bottom: 1.25rem;">'
+        f'  <div class="rt-card-header">'
+        f'    <div>'
+        f'      <span style="font-size: 1.35rem; font-weight: 800; color: #F8FAFC;">🚆 {html.escape(str(tr_num))} {html.escape(str(tr_name))}</span>'
+        f'      <div style="font-size: 0.8rem; color: #94A3B8; margin-top: 2px;">'
+        f'        Route: <b style="color:#F8FAFC;">{html.escape(str(train.get("passenger_from", "Origin")))} → {html.escape(str(train.get("passenger_to", "Destination")))}</b>'
+        f'      </div>'
+        f'    </div>'
+        f'    <div>{get_provenance_badge_html(badge_label, source=prov_status)}</div>'
+        f'  </div>'
+        f'  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 0.75rem;">'
+        f'    <div class="rt-metric-pill">'
+        f'      <span class="rt-metric-label">Current Location</span>'
+        f'      <span class="rt-metric-val" style="font-size: 0.95rem; color: #F8FAFC;">{html.escape(str(curr_stn_label))}</span>'
+        f'    </div>'
+        f'    <div class="rt-metric-pill">'
+        f'      <span class="rt-metric-label">Next Station</span>'
+        f'      <span class="rt-metric-val" style="font-size: 0.95rem; color: #38BDF8;">{html.escape(str(next_stn_label))}</span>'
+        f'    </div>'
+        f'    <div class="rt-metric-pill">'
+        f'      <span class="rt-metric-label">Distance to Next</span>'
+        f'      <span class="rt-metric-val" style="font-size: 0.95rem;">{f"{dist_next} km" if dist_next is not None else "--"}</span>'
+        f'    </div>'
+        f'    <div class="rt-metric-pill">'
+        f'      <span class="rt-metric-label">Current Speed</span>'
+        f'      <span class="rt-metric-val" style="font-size: 0.95rem; color: #38BDF8;">⚡ {speed} km/h</span>'
+        f'    </div>'
+        f'    <div class="rt-metric-pill">'
+        f'      <span class="rt-metric-label">Running Delay</span>'
+        f'      <span class="rt-metric-val" style="font-size: 0.95rem; color: {"#EF4444" if delay > 0 else "#10B981"};">'
+        f'        {"+" + str(delay) + " min" if delay > 0 else "✓ On Time"}'
+        f'      </span>'
+        f'    </div>'
+        f'    <div class="rt-metric-pill">'
+        f'      <span class="rt-metric-label">Destination ETA</span>'
+        f'      <span class="rt-metric-val" style="font-size: 0.95rem; color: #10B981;">'
+        f'        {str(dest_eta) + " min" if dest_eta is not None else "--"}'
+        f'      </span>'
+        f'    </div>'
+        f'  </div>'
+        f'</div>'
     )
+    st.markdown(clean_html(telemetry_html), unsafe_allow_html=True)
 
     # 2. Ringing Alarm Check
     alarm_enabled = st.session_state.get("dest_alarm_enabled", False)

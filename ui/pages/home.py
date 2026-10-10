@@ -10,6 +10,7 @@ from datetime import datetime, date
 import html
 import streamlit as st
 
+from ui.theme import clean_html
 from ui.components.header import render_app_header
 from ui.components.provenance import get_provenance_badge_html
 
@@ -27,27 +28,25 @@ STATION_OPTIONS = [
 
 
 def render_home_page() -> None:
-    """Render the clean, compact RailTrack passenger travel homepage."""
+    """Render the clean, compact RailTrack passenger travel homepage inspired by RailOne & IRCTC."""
     render_app_header()
 
     # 1. Hero Welcome Header
-    st.markdown(
-        """
-        <div style="background: linear-gradient(135deg, #071530 0%, #1E40AF 100%); border-radius: 14px; padding: 1.5rem 1.25rem; color: #FFFFFF; margin-bottom: 1.25rem; box-shadow: 0 4px 16px rgba(7, 21, 48, 0.15);">
-            <div style="font-size: 1.5rem; font-weight: 800; margin-bottom: 0.35rem; letter-spacing: -0.02em;">
-                Where is your next journey?
-            </div>
-            <div style="font-size: 0.85rem; color: #BFDBFE; font-weight: 500;">
-                Live train radar, coach positioning, PNR verification & AI travel intelligence.
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    hero_html = (
+        '<div style="background: linear-gradient(135deg, #071530 0%, #1E40AF 100%); border-radius: 14px; padding: 1.5rem 1.25rem; color: #FFFFFF; margin-bottom: 1.25rem; box-shadow: 0 4px 16px rgba(7, 21, 48, 0.15);">'
+        '  <div style="font-size: 1.5rem; font-weight: 800; margin-bottom: 0.35rem; letter-spacing: -0.02em;">'
+        '    Where is your next journey?'
+        '  </div>'
+        '  <div style="font-size: 0.85rem; color: #BFDBFE; font-weight: 500;">'
+        '    Unified Railway Portal — Live train radar, coach positioning, PNR verification & AI travel intelligence.'
+        '  </div>'
+        '</div>'
     )
+    st.markdown(clean_html(hero_html), unsafe_allow_html=True)
 
     # 2. Search Trains & Timetables
     with st.container():
-        st.markdown('<div class="rt-card-title" style="margin-bottom: 0.75rem;">🔍 Search Trains & Timetables</div>', unsafe_allow_html=True)
+        st.markdown(clean_html('<div class="rt-card-title" style="margin-bottom: 0.75rem;">🔍 Search Trains & Timetables</div>'), unsafe_allow_html=True)
 
         scol1, scol_swap, scol2, scol3 = st.columns([4, 1, 4, 3])
 
@@ -81,76 +80,116 @@ def render_home_page() -> None:
                 key="home_date_input",
             )
 
+        # Quota Selector
+        quota = st.pills(
+            "Booking Quota",
+            ["General (GN)", "Tatkal (TQ)", "Ladies (LD)", "Sr. Citizen (SS)"],
+            default="General (GN)",
+            key="home_quota_pills",
+        )
+
         if st.button("🚆 Search Available Trains", key="home_search_submit_btn", type="primary", use_container_width=True):
             st.session_state["passenger_from"] = from_stn
             st.session_state["passenger_to"] = to_stn
+            st.session_state["passenger_quota"] = quota
             from ui.routing import page_trains
             st.switch_page(page_trains)
 
-    # 3. 4 Essential Service Shortcuts (Quick Actions)
-    st.markdown('<div style="font-size:1.05rem; font-weight:700; color:#F1F5F9; margin: 1.25rem 0 0.75rem 0;">⚡ Essential Passenger Services</div>', unsafe_allow_html=True)
+    # 3. RailOne (CRIS) Unified Service Grid (6 Core Passenger Services)
+    st.markdown(clean_html('<div style="font-size:1.05rem; font-weight:700; color:#F1F5F9; margin: 1.25rem 0 0.75rem 0;">⚡ Essential Passenger Services</div>'), unsafe_allow_html=True)
 
-    qcol1, qcol2, qcol3, qcol4 = st.columns(4)
+    r1_col1, r1_col2, r1_col3 = st.columns(3)
+    r2_col1, r2_col2, r2_col3 = st.columns(3)
 
-    with qcol1:
+    with r1_col1:
         st.markdown(
-            """
-            <div class="rt-service-tile">
-                <div class="rt-service-icon">📍</div>
-                <div class="rt-service-name">Live Train Status</div>
-                <div class="rt-service-desc">Track real-time delays & station progression</div>
-            </div>
-            """,
+            clean_html(
+                '<div class="rt-service-tile">'
+                '  <div class="rt-service-icon">🔍</div>'
+                '  <div class="rt-service-name">Find Trains</div>'
+                '  <div class="rt-service-desc">Timetables, class availability & live fares</div>'
+                '</div>'
+            ),
+            unsafe_allow_html=True,
+        )
+        if st.button("Explore Trains", key="btn_quick_trains", use_container_width=True):
+            from ui.routing import page_trains
+            st.switch_page(page_trains)
+
+    with r1_col2:
+        st.markdown(
+            clean_html(
+                '<div class="rt-service-tile">'
+                '  <div class="rt-service-icon">📍</div>'
+                '  <div class="rt-service-name">Live Train Status</div>'
+                '  <div class="rt-service-desc">Track real-time delays, speeds & platforms</div>'
+                '</div>'
+            ),
             unsafe_allow_html=True,
         )
         if st.button("Track Live Status", key="btn_quick_live", use_container_width=True):
             from ui.routing import page_live_status
             st.switch_page(page_live_status)
 
-    with qcol2:
+    with r1_col3:
         st.markdown(
-            """
-            <div class="rt-service-tile">
-                <div class="rt-service-icon">🎫</div>
-                <div class="rt-service-name">PNR Status</div>
-                <div class="rt-service-desc">Verify confirmation status & e-ticket slip</div>
-            </div>
-            """,
+            clean_html(
+                '<div class="rt-service-tile">'
+                '  <div class="rt-service-icon">🎫</div>'
+                '  <div class="rt-service-name">PNR Status</div>'
+                '  <div class="rt-service-desc">ConfirmTkt confirmation probability & e-ticket</div>'
+                '</div>'
+            ),
             unsafe_allow_html=True,
         )
         if st.button("Check PNR Status", key="btn_quick_pnr", use_container_width=True):
             from ui.routing import page_pnr
             st.switch_page(page_pnr)
 
-    with qcol3:
+    with r2_col1:
         st.markdown(
-            """
-            <div class="rt-service-tile">
-                <div class="rt-service-icon">💺</div>
-                <div class="rt-service-name">Find My Coach</div>
-                <div class="rt-service-desc">Authentic rake order, loco distance & seat layout</div>
-            </div>
-            """,
+            clean_html(
+                '<div class="rt-service-tile">'
+                '  <div class="rt-service-icon">💺</div>'
+                '  <div class="rt-service-name">Find My Coach</div>'
+                '  <div class="rt-service-desc">Authentic rake order, loco position & seat maps</div>'
+                '</div>'
+            ),
             unsafe_allow_html=True,
         )
         if st.button("Locate My Coach", key="btn_quick_coach", use_container_width=True):
             from ui.routing import page_coach_position
             st.switch_page(page_coach_position)
 
-    with qcol4:
+    with r2_col2:
         st.markdown(
-            """
-            <div class="rt-service-tile">
-                <div class="rt-service-icon">🤖</div>
-                <div class="rt-service-name">Find Best Train</div>
-                <div class="rt-service-desc">AI assistant with deadline & ML delay ranking</div>
-            </div>
-            """,
+            clean_html(
+                '<div class="rt-service-tile">'
+                '  <div class="rt-service-icon">🤖</div>'
+                '  <div class="rt-service-name">Find Best Train</div>'
+                '  <div class="rt-service-desc">AI journey planner with ML delay predictions</div>'
+                '</div>'
+            ),
             unsafe_allow_html=True,
         )
         if st.button("AI Assistant", key="btn_quick_ai_train", use_container_width=True):
             from ui.routing import page_find_best_train
             st.switch_page(page_find_best_train)
+
+    with r2_col3:
+        st.markdown(
+            clean_html(
+                '<div class="rt-service-tile">'
+                '  <div class="rt-service-icon">🔔</div>'
+                '  <div class="rt-service-name">Network Alerts</div>'
+                '  <div class="rt-service-desc">Maintenance blocks, fog cautions & reroutes</div>'
+                '</div>'
+            ),
+            unsafe_allow_html=True,
+        )
+        if st.button("View Disruption Alerts", key="btn_quick_alerts", use_container_width=True):
+            from ui.routing import page_alerts
+            st.switch_page(page_alerts)
 
     # 4. Compact Journey Assistant Entry Point
     st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
@@ -253,25 +292,44 @@ def render_home_page() -> None:
             unsafe_allow_html=True,
         )
 
-    # 6. Relevant Travel Notice & Operational Advisory
-    st.markdown(
-        """
-        <div style="padding: 0.85rem 1rem; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; font-size: 0.75rem; color: #FBBF24; line-height: 1.5; margin-bottom: 1.25rem;">
-            ⚠️ <b>Operational Travel Advisory</b>: Sectional speed restrictions (TSR) are active between Kanpur and Prayagraj for automated track renewal. Live safety clearances and train dispatching are controlled under Indian Railways G&SR rules.
-        </div>
-        """,
-        unsafe_allow_html=True,
+    # 6. RailOne Station Amenities & Emergency Helplines Strip
+    amenity_strip_html = (
+        '<div style="background: #101D37; border: 1px solid #1E2E4A; border-radius: 10px; padding: 0.85rem 1rem; margin-bottom: 1.25rem;">'
+        '  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">'
+        '    <div>'
+        '      <span style="font-weight: 700; color: #F8FAFC; font-size: 0.9rem;">🏛️ Station Amenities & Passenger Assistance</span>'
+        '      <div style="font-size: 0.75rem; color: #94A3B8; margin-top: 2px;">'
+        '        Waiting Lounges · Cloak Rooms · Battery Carts for Seniors · Escalators & Lifts · Medical Kiosks'
+        '      </div>'
+        '    </div>'
+        '    <div style="display: flex; gap: 10px; align-items: center;">'
+        '      <span style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #F87171; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">'
+        '        🚨 Security: 182'
+        '      </span>'
+        '      <span style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #34D399; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">'
+        '        📞 RailMadad: 139'
+        '      </span>'
+        '    </div>'
+        '  </div>'
+        '</div>'
     )
+    st.markdown(clean_html(amenity_strip_html), unsafe_allow_html=True)
 
-    # 7. Non-vital Platform Notice Footer
-    st.markdown(
-        """
-        <div style="padding: 0.75rem 1rem; background: #0B1730; border: 1px solid #2A3B57; border-radius: 8px; font-size: 0.72rem; color: #A9BAD3; line-height: 1.5;">
-            🏛️ <b>RailTrack Transparency & Safety Notice</b>: RailTrack provides passenger journey intelligence and multi-train section optimization. Station platforms, timetables, and delay predictions are matched against verified railway database records. Rail Madad helpline: <b>139</b>.
-        </div>
-        """,
-        unsafe_allow_html=True,
+    # 7. Relevant Travel Notice & Operational Advisory
+    advisory_html = (
+        '<div style="padding: 0.85rem 1rem; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; font-size: 0.75rem; color: #FBBF24; line-height: 1.5; margin-bottom: 1.25rem;">'
+        '  ⚠️ <b>Operational Travel Advisory</b>: Sectional speed restrictions (TSR) are active between Kanpur and Prayagraj for automated track renewal. Live safety clearances and train dispatching are controlled under Indian Railways G&SR rules.'
+        '</div>'
     )
+    st.markdown(clean_html(advisory_html), unsafe_allow_html=True)
+
+    # 8. Non-vital Platform Notice Footer
+    footer_html = (
+        '<div style="padding: 0.75rem 1rem; background: #0B1730; border: 1px solid #2A3B57; border-radius: 8px; font-size: 0.72rem; color: #A9BAD3; line-height: 1.5;">'
+        '  🏛️ <b>RailTrack Transparency & Safety Notice</b>: RailTrack provides passenger journey intelligence and multi-train section optimization. Station platforms, timetables, and delay predictions are matched against verified railway database records. Rail Madad helpline: <b>139</b>.'
+        '</div>'
+    )
+    st.markdown(clean_html(footer_html), unsafe_allow_html=True)
 
 
 if __name__ == "__main__":

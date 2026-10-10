@@ -15,6 +15,7 @@ from typing import Dict, Any, Optional
 import html
 import streamlit as st
 
+from ui.theme import clean_html
 from ui.components.header import render_app_header
 from ui.components.coach_visualizer import (
     load_coach_formations,
@@ -38,28 +39,26 @@ def render_coach_position_page() -> None:
     """Render the dedicated Find My Coach page."""
     render_app_header()
 
-    st.markdown(
-        """
-        <div style="background: linear-gradient(135deg, #071530 0%, #1E40AF 100%); border-radius: 14px; padding: 1.5rem 1.25rem; color: #FFFFFF; margin-bottom: 1.25rem; box-shadow: 0 4px 16px rgba(7, 21, 48, 0.15);">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
-                <div>
-                    <div style="font-size: 1.5rem; font-weight: 800; margin-bottom: 0.35rem; letter-spacing: -0.02em;">
-                        💺 Find My Coach & Seat Position
-                    </div>
-                    <div style="font-size: 0.85rem; color: #BFDBFE; font-weight: 500;">
-                        Locate your coach relative to the locomotive and inspect interior berth layouts.
-                    </div>
-                </div>
-                <div>
-                    <span style="background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.3); padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; color: #FFFFFF;">
-                        VERIFIED RAKES
-                    </span>
-                </div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    hero_html = (
+        '<div style="background: linear-gradient(135deg, #071530 0%, #1E40AF 100%); border-radius: 14px; padding: 1.5rem 1.25rem; color: #FFFFFF; margin-bottom: 1.25rem; box-shadow: 0 4px 16px rgba(7, 21, 48, 0.15);">'
+        '  <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">'
+        '    <div>'
+        '      <div style="font-size: 1.5rem; font-weight: 800; margin-bottom: 0.35rem; letter-spacing: -0.02em;">'
+        '        💺 Find My Coach & Seat Position'
+        '      </div>'
+        '      <div style="font-size: 0.85rem; color: #BFDBFE; font-weight: 500;">'
+        '        ixigo-style authentic rake order, locomotive distance & 2D berth layouts.'
+        '      </div>'
+        '    </div>'
+        '    <div>'
+        '      <span style="background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.3); padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; color: #FFFFFF;">'
+        '        VERIFIED RAKES'
+        '      </span>'
+        '    </div>'
+        '  </div>'
+        '</div>'
     )
+    st.markdown(clean_html(hero_html), unsafe_allow_html=True)
 
     tab_pnr, tab_browse = st.tabs(["🎫 Locate Coach via PNR (Verified Passenger)", "🔍 Browse Train Formations (Public Rake Catalog)"])
 
