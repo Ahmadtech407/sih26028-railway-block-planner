@@ -253,6 +253,41 @@ h1, h2, h3, h4, h5, h6,
     color: #F1F5F9 !important;
 }
 
+/* Sidebar Navigation Link Enhancements */
+[data-testid="stSidebarNav"] li a {
+    color: #CBD5E1 !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    font-size: 0.9rem !important;
+    transition: all 0.15s ease !important;
+    padding: 6px 12px !important;
+}
+
+[data-testid="stSidebarNav"] li a:hover {
+    background: #101D37 !important;
+    color: #38BDF8 !important;
+}
+
+[data-testid="stSidebarNav"] li a[aria-current="page"] {
+    background: linear-gradient(135deg, #0284C7 0%, #0369A1 100%) !important;
+    color: #FFFFFF !important;
+    font-weight: 700 !important;
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4) !important;
+}
+
+[data-testid="stSidebarNavSeparator"] {
+    border-top: 1px solid #2A3B57 !important;
+    margin: 8px 0 !important;
+}
+
+[data-testid="stSidebarNavItems"] span {
+    color: #38BDF8 !important;
+    font-size: 0.72rem !important;
+    font-weight: 750 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+}
+
 /* Quick Service Cards */
 .rt-service-tile {
     background: #101D37;

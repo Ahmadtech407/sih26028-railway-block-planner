@@ -83,3 +83,27 @@ def test_all_page_callables_are_valid():
 
     for name, fn in pages_to_test:
         assert callable(fn), f"Page handler for '{name}' is not callable"
+
+
+@pytest.mark.parametrize(
+    "page_module,page_fn",
+    [
+        ("ui.pages.home", "render_home_page"),
+        ("ui.pages.find_best_train", "render_find_best_train_page"),
+        ("ui.pages.live_status", "render_live_status_page"),
+        ("ui.pages.coach_position", "render_coach_position_page"),
+        ("ui.pages.pnr", "render_pnr_page"),
+        ("ui.pages.trains", "render_trains_page"),
+        ("ui.pages.my_journeys", "render_my_journeys_page"),
+        ("ui.pages.alerts", "render_alerts_page"),
+        ("ui.pages.account", "render_account_page"),
+        ("ui.pages.operations", "render_operations_page"),
+    ],
+)
+def test_all_10_pages_execute_without_exceptions(page_module, page_fn):
+    """Verify that every single page executes completely with zero unhandled exceptions."""
+    code = f"from {page_module} import {page_fn}; {page_fn}()"
+    at = AppTest.from_string(code, default_timeout=20)
+    at.run()
+    assert len(at.exception) == 0, f"Exception on {page_fn}: {[e.message for e in at.exception]}"
+

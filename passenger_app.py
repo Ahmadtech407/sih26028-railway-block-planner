@@ -95,20 +95,21 @@ st.markdown(
         visibility: hidden !important;
     }
 
-    /* Keep Streamlit header transparent so the sidebar collapse/reopen button is always accessible */
+    /* Keep Streamlit header accessible and non-interfering */
     header[data-testid="stHeader"] {
         background: transparent !important;
         height: 2.75rem !important;
         z-index: 999990 !important;
-        pointer-events: none !important;
     }
 
     header[data-testid="stHeader"] * {
         pointer-events: auto !important;
     }
 
-    /* Style the sidebar reopen toggle button so it never disappears when collapsed */
-    [data-testid="collapsedControl"] {
+    /* Style the sidebar reopen toggle button so it never disappears on any screen size */
+    [data-testid="stSidebarCollapsedControl"],
+    [data-testid="collapsedControl"],
+    [data-testid="stSidebarCollapseButton"] {
         display: flex !important;
         visibility: visible !important;
         opacity: 1 !important;
@@ -124,17 +125,33 @@ st.markdown(
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45) !important;
         cursor: pointer !important;
         transition: all 0.2s ease !important;
+        pointer-events: auto !important;
     }
 
-    [data-testid="collapsedControl"]:hover {
+    [data-testid="stSidebarCollapsedControl"]:hover,
+    [data-testid="collapsedControl"]:hover,
+    [data-testid="stSidebarCollapseButton"]:hover {
         background: #162640 !important;
         border-color: #38BDF8 !important;
         box-shadow: 0 6px 18px rgba(56, 189, 248, 0.3) !important;
     }
 
-    [data-testid="collapsedControl"] svg {
+    [data-testid="stSidebarCollapsedControl"] svg,
+    [data-testid="collapsedControl"] svg,
+    [data-testid="stSidebarCollapseButton"] svg {
         fill: #38BDF8 !important;
         stroke: #38BDF8 !important;
+    }
+
+    /* Ensure sidebar is anchored and prominently visible on desktop screens (min-width: 992px) */
+    @media (min-width: 992px) {
+        [data-testid="stSidebar"] {
+            display: block !important;
+            visibility: visible !important;
+            min-width: 275px !important;
+            max-width: 320px !important;
+            transform: none !important;
+        }
     }
 
     div[data-testid="stToolbar"] {
@@ -5047,14 +5064,42 @@ def render_passenger_view() -> None:
 def main() -> None:
     initialize_auth_state()
     validate_auth_session()
+
+    # Sidebar top branding header
+    with st.sidebar:
+        st.markdown(
+            """
+            <div style="padding: 0.25rem 0 0.75rem 0; border-bottom: 1px solid #2A3B57; margin-bottom: 0.75rem;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:1.6rem;">🚆</span>
+                    <div>
+                        <div style="font-size:1.15rem; font-weight:800; color:#FFFFFF; line-height:1.2;">RailTrack</div>
+                        <div style="font-size:0.7rem; color:#38BDF8; font-weight:600; letter-spacing:0.04em;">PASSENGER PORTAL</div>
+                    </div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
     from ui.routing import get_navigation_structure
     nav = st.navigation(get_navigation_structure())
+
+    # Sidebar bottom emergency helpline footer
+    with st.sidebar:
+        st.markdown(
+            """
+            <div style="margin-top: 1.5rem; padding: 0.85rem; background: #101D37; border: 1px solid #2A3B57; border-radius: 10px;">
+                <div style="font-size:0.72rem; font-weight:700; color:#38BDF8; margin-bottom:4px; text-transform:uppercase;">🚨 24x7 Railway Helpline</div>
+                <div style="font-size:0.8rem; color:#F1F5F9; margin-bottom:2px;">Passenger Inquiries: <b style="color:#10B981;">139</b></div>
+                <div style="font-size:0.8rem; color:#F1F5F9;">Security / Emergency: <b style="color:#F43F5E;">182</b></div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
     nav.run()
 
 
-from streamlit.runtime.scriptrunner import get_script_run_ctx
-
 if __name__ == "__main__":
-    main()
-elif get_script_run_ctx() is not None:
     main()

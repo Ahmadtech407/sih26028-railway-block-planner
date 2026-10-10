@@ -204,7 +204,6 @@ def render_coach_position_page() -> None:
             )
 
             # Render authentic rake formation diagram
-            from passenger_app import clean_html
             st.markdown('<div style="font-size: 1.05rem; font-weight: 700; color: #F1F5F9; margin: 1rem 0 0.5rem 0;">🚆 Train Rake Formation (Locomotive to Rear)</div>', unsafe_allow_html=True)
             formation_html = render_coach_formation_html(train_num, coach_id, seat_num)
             st.markdown(clean_html(formation_html), unsafe_allow_html=True)
@@ -258,7 +257,6 @@ def render_coach_position_page() -> None:
         with b_col_se:
             sel_b_seat = st.text_input("Sample Seat (Optional)", value="", placeholder="e.g. 24", key="browse_seat_in")
 
-        from passenger_app import clean_html
         st.markdown('<div style="font-size: 1.05rem; font-weight: 700; color: #F1F5F9; margin: 1rem 0 0.5rem 0;">🚆 Marshalling Order Diagram</div>', unsafe_allow_html=True)
         b_formation_html = render_coach_formation_html(b_train_num, sel_b_coach, sel_b_seat)
         st.markdown(clean_html(b_formation_html), unsafe_allow_html=True)
