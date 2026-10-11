@@ -22,7 +22,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-from ui.theme import inject_custom_theme
+from ui.theme import inject_custom_theme, clean_html
 inject_custom_theme()
 
 # Inject viewport meta & module preloads for zero-error responsive rendering
@@ -847,15 +847,6 @@ st.markdown(
     ),
     unsafe_allow_html=True,
 )
-
-
-def clean_html(s: str) -> str:
-    """Strip comments and leading/trailing whitespace from every line so Streamlit never creates code blocks."""
-    if not s:
-        return ""
-    s = re.sub(r'<!--.*?-->', '', s, flags=re.DOTALL)
-    lines = [line.strip() for line in s.splitlines() if line.strip()]
-    return "".join(lines)
 
 
 def generate_hero_banner_svg() -> str:

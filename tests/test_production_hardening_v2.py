@@ -21,8 +21,6 @@ Validates:
 5. Database Durability & Online Backup/Recovery.
 """
 
-from datetime import datetime, timezone
-from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
@@ -39,7 +37,6 @@ from backend.schemas.clearance_models import (
     TractionIsolationStateEnum,
     UserRoleEnum,
 )
-from backend.schemas.topology_models import InfrastructureConfigError
 from backend.services import (
     clearance_service,
     optimizer_service,

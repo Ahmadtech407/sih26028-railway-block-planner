@@ -11,15 +11,11 @@ Covers all 6 priority improvement areas:
 """
 
 import os
-import sqlite3
-import pytest
 import pandas as pd
-from datetime import datetime, timezone
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-from backend.supa_client import is_supabase_configured, TableQuery, _get_http_session, SupabaseRestClient
+from backend.supa_client import is_supabase_configured, _get_http_session, SupabaseRestClient
 from backend.services.supabase_train_store import (
-    LOCAL_DB_PATH,
     store_telemetry,
     get_telemetry_history,
     store_ml_prediction,
@@ -30,7 +26,6 @@ from backend.services.train_service import get_trains_for_section
 from backend.ml.retrain_pipeline import (
     validate_dataset,
     evaluate_against_champion,
-    fetch_retraining_data,
 )
 from passenger_app import destination_eta_minutes
 

@@ -5,7 +5,6 @@ Streamlit Frontend connected to live FastAPI Backend.
 
 import os
 import json
-import time
 import requests
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional, Tuple
@@ -14,6 +13,8 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+
+from ui.theme import clean_html
 
 # ============================================================
 # CONFIG & BACKEND URL
@@ -355,16 +356,6 @@ def minutes_to_hhmm(minutes: int) -> str:
 # ============================================================
 # COACH FORMATION LOCATOR (DATA-DRIVEN)
 # ============================================================
-
-
-def clean_html(s: str) -> str:
-    """Strip comments and leading/trailing whitespace from every line so Streamlit never creates code blocks."""
-    if not s:
-        return ""
-    import re
-    s = re.sub(r'<!--.*?-->', '', s, flags=re.DOTALL)
-    lines = [line.strip() for line in s.splitlines() if line.strip()]
-    return "".join(lines)
 
 
 def render_coach_position_section(default_train: str = "22436"):

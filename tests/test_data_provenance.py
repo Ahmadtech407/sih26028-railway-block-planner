@@ -12,7 +12,6 @@ Validates:
 """
 
 import time
-import pytest
 from datetime import datetime
 
 from backend.services.data_provenance import (
@@ -28,7 +27,6 @@ from backend.services.data_provenance import (
 from ui.components.provenance import (
     get_provenance_badge_html,
     format_truthful_provenance_label,
-    PROVENANCE_CONFIGS,
 )
 
 

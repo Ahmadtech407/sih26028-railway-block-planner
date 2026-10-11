@@ -1,10 +1,7 @@
 """Tests for Pre-Cleaned Kaggle Indian Railways Dataset & Corridor Kinematics."""
 
-import pytest
 from backend.data.kaggle_rail_dataset import (
     KAGGLE_STATION_REGISTRY,
-    KAGGLE_CORRIDORS,
-    KAGGLE_ALIASES,
     get_empirical_delay_estimate,
 )
 from backend.services.station_network import (

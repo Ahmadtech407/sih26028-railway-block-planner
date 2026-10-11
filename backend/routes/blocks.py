@@ -9,10 +9,9 @@ and has reached APPROVED state.
 Persists all committed blocks to the persistent SQLite database.
 """
 
-import time
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 from fastapi import APIRouter, HTTPException, status
 
 from backend import database as db

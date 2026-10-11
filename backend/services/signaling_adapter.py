@@ -13,8 +13,8 @@ SAFETY BOUNDARY ARCHITECTURE:
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+from typing import Any, Dict, Optional
+from pydantic import BaseModel
 
 
 class SignalingIntegrationMode(str, Enum):

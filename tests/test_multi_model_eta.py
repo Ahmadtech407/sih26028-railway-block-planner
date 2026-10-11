@@ -6,13 +6,11 @@ Comprehensive tests for the 5-model ETA prediction system.
 
 import pytest
 import json
-import pandas as pd
-import numpy as np
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from backend.ml.model_registry import registry, ModelRegistry
-from backend.ml.feature_engineering import create_eta_features, FEATURES_NUM, FEATURES_CAT
+from backend.ml.feature_engineering import create_eta_features
 from backend.services import ml_prediction_service as ml
 
 BASE_DIR = Path(__file__).resolve().parent.parent

@@ -14,7 +14,7 @@ with a deterministic, calibrated simulated fallback provider.
 import os
 import math
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, Any, Optional, Tuple
 
 import requests
@@ -182,18 +182,14 @@ def get_simulated_weather(
 
     # Resolve location coordinates & display name
     if section_id in SECTION_COORDINATES:
-        coords = SECTION_COORDINATES[section_id]
-        lat, lon, station_display = coords[0], coords[1], coords[2]
+        lat, lon, station_display = SECTION_COORDINATES[section_id][:3]
     else:
         try:
             from backend.services.station_network import find_station
             m = find_station(section_id)
-            if m:
-                lat, lon, station_display = float(m["lat"]), float(m["lon"]), f"{m['name']} · {m['code']}"
-            else:
-                lat, lon, station_display = DEFAULT_COORDINATES[0], DEFAULT_COORDINATES[1], DEFAULT_COORDINATES[2]
+            lat, lon, station_display = (float(m["lat"]), float(m["lon"]), f"{m['name']} · {m['code']}") if m else DEFAULT_COORDINATES[:3]
         except Exception:
-            lat, lon, station_display = DEFAULT_COORDINATES[0], DEFAULT_COORDINATES[1], DEFAULT_COORDINATES[2]
+            lat, lon, station_display = DEFAULT_COORDINATES[:3]
 
     # Regional climate model: latitude-aware temperature (cooler in northern Jammu/Kashmir, temperate in Gangetic plains)
     lat_offset = (28.0 - lat) * 1.4

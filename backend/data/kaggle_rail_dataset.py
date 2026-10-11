@@ -12,7 +12,7 @@ nationwide corridor definitions, and statistical punctuality profiles.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 # ==============================================================================
 # 1. PRE-CLEANED STATION MASTER (200+ Major Stations across all 18 Zones)

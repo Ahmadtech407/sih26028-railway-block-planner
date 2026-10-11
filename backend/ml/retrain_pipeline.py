@@ -14,8 +14,7 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Dict, Any, Tuple, Optional, List
+from typing import Dict, Any, Tuple, Optional
 
 import numpy as np
 import pandas as pd

@@ -2,11 +2,8 @@
 WebSocket Manager for Real-Time Railway Telemetry Streaming.
 """
 
-import asyncio
-import json
-from typing import List, Set
-from fastapi import WebSocket, WebSocketDisconnect
-from datetime import datetime
+from typing import Set
+from fastapi import WebSocket
 
 
 class TelemetryConnectionManager:

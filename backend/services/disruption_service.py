@@ -9,7 +9,7 @@ consumed directly by the ML ETA pipeline and kinematics guardrails.
 import time
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 
 logger = logging.getLogger(__name__)
 

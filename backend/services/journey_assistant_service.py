@@ -15,20 +15,12 @@ trains or schedules.
 from __future__ import annotations
 
 import re
-import math
 from abc import ABC, abstractmethod
-from datetime import datetime, date, time as dt_time, timedelta, timezone
+from datetime import datetime, time as dt_time, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from backend.services.station_network import (
-    STATION_REGISTRY,
-    STATION_ALIASES,
-    find_station,
-    get_route_stops,
-    haversine_distance_km,
-)
+from backend.services.station_network import find_station
 from backend.services import ml_prediction_service as ml
-from backend.schemas.provenance_models import DataStatusEnum
 
 
 # ==============================================================================

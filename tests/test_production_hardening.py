@@ -21,7 +21,6 @@ Validates all 15 critical safety constraints:
 """
 
 import os
-import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app

@@ -10,7 +10,6 @@ Verifies:
 import os
 import re
 from pathlib import Path
-import pytest
 
 from ui.routing import get_navigation_structure
 from passenger_app import clean_html, resolve_backend_url

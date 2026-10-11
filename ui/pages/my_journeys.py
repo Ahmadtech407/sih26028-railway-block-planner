@@ -5,7 +5,6 @@ recently viewed train routes, and direct links to live tracking and coach positi
 Provides cloud sign-in prompts and honest empty states.
 """
 
-from typing import Dict, Any
 import html
 import streamlit as st
 

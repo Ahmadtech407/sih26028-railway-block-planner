@@ -26,7 +26,7 @@ import logging
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Any, Tuple, List
+from typing import Dict, Any, Tuple
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 if str(BASE_DIR) not in sys.path:
@@ -35,11 +35,10 @@ if str(BASE_DIR) not in sys.path:
 import numpy as np
 import pandas as pd
 import joblib
-import xgboost
 from xgboost import XGBRegressor
 from scipy.optimize import minimize
 
-from sklearn.model_selection import train_test_split, KFold, cross_val_score
+from sklearn.model_selection import KFold, cross_val_score
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder

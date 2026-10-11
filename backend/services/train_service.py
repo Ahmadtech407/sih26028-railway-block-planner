@@ -19,7 +19,6 @@ from backend.schemas.api_models import (
 )
 from backend.services.train_data_source import (
     TrainDataSource,
-    SimulatorDataSource,
     GovtRailwayDataSource,
 )
 from backend.services import ml_prediction_service as ml

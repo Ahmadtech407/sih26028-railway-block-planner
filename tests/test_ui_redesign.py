@@ -9,8 +9,6 @@ Verifies:
 6. Header brand identity and connectivity indicator.
 """
 
-import pytest
-import streamlit as st
 from ui.routing import (
     NAVIGATION_STRUCTURE,
     page_home,
@@ -24,10 +22,10 @@ from ui.routing import (
     page_auth,
     page_operations,
 )
-from ui.components.provenance import get_provenance_badge_html, PROVENANCE_CONFIGS
+from ui.components.provenance import get_provenance_badge_html
 from ui.components.coach_visualizer import load_coach_formations, render_coach_formation_html, render_coach_seat_map_html
 from ui.components.station_stepper import render_station_stepper_html
-from ui.theme import THEME_TOKENS, inject_custom_theme
+from ui.theme import THEME_TOKENS
 
 
 def test_navigation_structure_contains_all_required_sections():

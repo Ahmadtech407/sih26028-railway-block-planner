@@ -16,20 +16,15 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from backend.schemas.api_models import (
     BlockOptimizationRequest,
-    ConflictCheckRequest,
     TrainDetails,
     TrainDirectionEnum,
     TrainStatusEnum,
 )
 from backend.services.optimizer_service import (
     solve_maintenance_block,
-    check_conflicts,
-    evaluate_slot,
     is_tier1_or_tier2_conflict,
     calculate_train_delay,
-    SAFETY_BUFFER_MINUTES,
 )
-from backend.services.train_service import get_trains_for_section
 
 
 def test_standard_120min_maintenance_window():

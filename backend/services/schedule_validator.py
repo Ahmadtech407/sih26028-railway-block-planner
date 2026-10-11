@@ -8,7 +8,7 @@ This validator must NOT reuse or import the optimizer service's conflict-checkin
 functions. It operates as an autonomous checker to guarantee solver solution veracity.
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List
 from pydantic import BaseModel, Field
 
 from backend.schemas.api_models import TrainDetails

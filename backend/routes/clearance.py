@@ -7,7 +7,7 @@ Traction Power (OHE) isolation permits, TSRs, and Signaling boundary.
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, status
 
 from backend.schemas.clearance_models import (
     ClearanceAdvanceRequest,

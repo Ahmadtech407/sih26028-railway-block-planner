@@ -4,7 +4,6 @@ Integrates Google Antigravity SDK / Gemini for conversational railway assistance
 """
 
 import os
-from typing import Dict, Any, List, Optional
 from backend.schemas.api_models import AIChatRequest, AIChatResponse
 
 

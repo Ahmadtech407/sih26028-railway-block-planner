@@ -277,14 +277,10 @@ def get_route_stops(origin_code: str, dest_code: str) -> List[Dict[str, Any]]:
     if (dest_code, origin_code) in OFFICIAL_CORRIDORS:
         rev_stops = OFFICIAL_CORRIDORS[(dest_code, origin_code)]
         total_km = rev_stops[-1]["km"]
-        inverted = []
-        for s in reversed(rev_stops):
-            inverted.append({
-                "code": s["code"],
-                "name": s["name"],
-                "km": round(total_km - s["km"], 1),
-            })
-        return inverted
+        return [
+            {"code": s["code"], "name": s["name"], "km": round(total_km - s["km"], 1)}
+            for s in reversed(rev_stops)
+        ]
 
     # 3. Dynamic route synthesis via geodesic distance + railway tortuosity factor (1.28)
     orig_info = STATION_REGISTRY.get(origin_code)

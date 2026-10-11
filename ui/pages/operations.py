@@ -4,36 +4,13 @@ Administrative planning dashboard for train scheduling, conflict detection, CP-S
 """
 
 import os
-import json
 import time
-from typing import Dict, Any, List, Optional
-import requests
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
 from ui.components.header import render_app_header
 from ui.components.provenance import get_provenance_badge_html
-
-
-def resolve_backend_url() -> str:
-    """Resolve backend URL with intelligent Render deployment detection."""
-    url = os.environ.get("BACKEND_URL", "").strip()
-    if not url:
-        if os.environ.get("RENDER") or os.environ.get("PORT"):
-            return "https://sih26028-railway-backend.onrender.com"
-        return "http://127.0.0.1:8000"
-    if (url.rstrip("/").endswith("127.0.0.1:8000") or url.rstrip("/").endswith("localhost:8000")) and (os.environ.get("RENDER") or os.environ.get("PORT")):
-        return "https://sih26028-railway-backend.onrender.com"
-    return url.rstrip("/")
-
-
-BACKEND_URL = resolve_backend_url()
-
-
-def minutes_to_hhmm(minutes: int) -> str:
-    """Converts minutes since midnight to HH:MM format."""
-    return f"{minutes // 60:02d}:{minutes % 60:02d}"
 
 
 def render_operations_page() -> None:
@@ -44,14 +21,8 @@ def render_operations_page() -> None:
         fetch_sections,
         fetch_section_details,
         fetch_trains,
-        fetch_weather,
-        fetch_platform_status,
-        api_check_conflicts,
         api_solve_optimizer,
-        api_commit_block,
-        api_get_clearance,
         api_advance_clearance,
-        api_reject_clearance,
         fetch_committed_blocks,
     )
 

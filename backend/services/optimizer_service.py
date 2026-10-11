@@ -11,7 +11,7 @@ Implements genuine multi-resource constraint programming:
 - Solves distinct alternatives via exclusion constraints in CP-SAT.
 """
 
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Tuple
 from ortools.sat.python import cp_model
 
 from backend.schemas.api_models import (
@@ -27,7 +27,6 @@ from backend.schemas.api_models import (
 from backend.services.train_service import get_trains_for_section, min_to_hhmm
 from backend.services.platform_service import detect_platform_conflicts
 from backend.services.weather_service import get_section_weather
-from backend.services.tsr_service import get_active_tsrs_for_section, calculate_tsr_delay_minutes
 from backend.services.section_service import (
     get_section_infrastructure_config,
     InfrastructureConfigError,

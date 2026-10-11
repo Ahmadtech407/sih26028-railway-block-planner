@@ -7,12 +7,12 @@ and securely associate saved journeys with authenticated passengers.
 """
 
 from typing import Any, Dict, Optional
-from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Depends
+from fastapi import APIRouter, HTTPException, UploadFile, File, Depends
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
 
-from backend.services.ticket_service import verify_ticket, sanitize_payload
+from backend.services.ticket_service import verify_ticket
 from backend.routes.auth import bearer_scheme, decode_token
 from backend.database import save_user_journey, get_user_journey, clear_user_journey
 

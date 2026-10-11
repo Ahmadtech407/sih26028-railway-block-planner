@@ -25,17 +25,15 @@ Comprehensive test suite verifying all 20 critical engineering requirements:
 """
 
 import pytest
-from datetime import datetime, date, timedelta
+from datetime import date
 from fastapi.testclient import TestClient
 
 from backend.main import app
 from backend.services.journey_assistant_service import (
     parse_journey_intent,
     calculate_train_feasibility,
-    rank_candidate_trains,
     search_journey_assistant,
     DemoTrainProvider,
-    IST_TZ,
 )
 
 

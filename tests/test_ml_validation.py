@@ -4,7 +4,6 @@ Verifies model serialization, 5-fold cross-validation metrics, probability extra
 feature engineering, dynamic ETA calculation, and fallback mechanisms.
 """
 
-import pytest
 from backend.services import ml_prediction_service as ml
 from backend.ml.feature_engineering import create_eta_features
 

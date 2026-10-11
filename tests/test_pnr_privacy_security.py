@@ -16,12 +16,9 @@ Validates the 12 critical production security boundaries:
 12. Live formation is labelled LIVE only when an actual verified live source is used.
 """
 
-import json
-import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
-from backend.services.ticket_service import KNOWN_TICKETS
 
 client = TestClient(app)
 

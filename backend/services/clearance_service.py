@@ -13,12 +13,11 @@ Enforces:
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 import uuid
 
 from backend import database as db
 from backend.schemas.clearance_models import (
-    ApprovalHistoryItem,
     ClearanceAdvanceRequest,
     ClearanceCancelRequest,
     ClearanceCreateRequest,
@@ -30,9 +29,8 @@ from backend.schemas.clearance_models import (
     TractionIsolationStateEnum,
     UserRoleEnum,
 )
-from backend.services.traction_service import is_ohe_permit_active, get_permit_for_block
+from backend.services.traction_service import get_permit_for_block
 from backend.services.tsr_service import create_post_maintenance_tsr
-from backend.services.signaling_adapter import signaling_adapter
 
 # Role authority matrix for permitted state transitions
 PERMITTED_TRANSITIONS: Dict[Tuple[ClearanceStateEnum, ClearanceStateEnum], List[UserRoleEnum]] = {

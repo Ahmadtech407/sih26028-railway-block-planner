@@ -1,10 +1,7 @@
 """Tests for Indian Railways Station Network, Corridor Distances, and Kinematics."""
 
-import pytest
 from backend.services.station_network import (
-    STATION_REGISTRY,
     find_station,
-    get_route_stops,
     resolve_station_route,
 )
 

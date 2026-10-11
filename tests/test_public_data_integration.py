@@ -12,18 +12,16 @@ Validates:
 """
 
 import json
-from datetime import datetime
 from pathlib import Path
 import pandas as pd
-import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
-from backend.ml.data.leakage_audit import LeakageAuditor, SAFE_FEATURES, LEAKED_FEATURES
+from backend.ml.data.leakage_audit import LeakageAuditor, LEAKED_FEATURES
 from backend.ml.data.quality_pipeline import RailwayDataQualityPipeline
 from backend.ml.feature_engineering import prepare_training_features, FEATURES_NUM, FEATURES_CAT
-from backend.ml.model_registry import registry, ModelRegistry
+from backend.ml.model_registry import registry
 from backend.services import ml_prediction_service as ml
 
 BASE_DIR = Path(__file__).resolve().parent.parent

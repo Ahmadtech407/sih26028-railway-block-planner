@@ -16,9 +16,8 @@ from pathlib import Path
 from typing import Dict, Any, Optional, Tuple
 
 import pandas as pd
-import numpy as np
 
-from backend.ml.feature_engineering import create_eta_features, FEATURES_NUM, FEATURES_CAT
+from backend.ml.feature_engineering import create_eta_features
 from backend.ml.model_registry import registry
 
 logger = logging.getLogger(__name__)

@@ -6,13 +6,12 @@ compact AI journey assistant launcher, recent searches, and travel notices.
 Excludes heavy maps, detailed timelines, and coach diagrams to prevent long scrolling.
 """
 
-from datetime import datetime, date
+from datetime import date
 import html
 import streamlit as st
 
 from ui.theme import clean_html
 from ui.components.header import render_app_header
-from ui.components.provenance import get_provenance_badge_html
 
 
 STATION_OPTIONS = [

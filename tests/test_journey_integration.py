@@ -11,8 +11,6 @@ Verifies:
 import time
 from fastapi.testclient import TestClient
 from backend.main import app
-from backend.routes.auth import create_token
-from backend.database import get_user_by_identifier, save_user_journey, get_user_journey, clear_user_journey
 
 client = TestClient(app)
 

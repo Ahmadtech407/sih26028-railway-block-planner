@@ -11,13 +11,12 @@ Enforces mandatory PNR verification security boundaries:
 from datetime import datetime, timedelta, timezone
 import json
 import logging
-import os
 from pathlib import Path
 import re
 import secrets
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 

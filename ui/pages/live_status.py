@@ -6,8 +6,6 @@ Route map & live telemetry on the right), stacking cleanly vertically on mobile.
 Features delay metrics, platform confidence, weather conditions, and destination wake-up alarm.
 """
 
-from typing import Dict, Any, List, Optional
-from datetime import datetime, timedelta
 import html
 import plotly.graph_objects as go
 import streamlit as st
@@ -27,15 +25,12 @@ def render_live_status_page() -> None:
         fetch_trains,
         destination_eta_minutes,
         delay_minutes,
-        distance_to_next_station,
         next_station_distance,
         display_current_station,
         get_route_stations,
         should_trigger_alarm,
         render_destination_alarm,
         render_ringing_alarm,
-        fetch_weather,
-        fetch_platforms,
         MAP_LAYOUT_KEY,
         MAP_TRACE,
     )

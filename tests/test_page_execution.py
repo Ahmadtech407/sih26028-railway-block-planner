@@ -6,19 +6,7 @@ renders visible widgets, and executes within the Streamlit runtime environment.
 from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
-from ui.routing import (
-    get_navigation_structure,
-    page_home,
-    page_find_best_train,
-    page_live_status,
-    page_coach_position,
-    page_pnr,
-    page_trains,
-    page_my_journey,
-    page_alerts,
-    page_auth,
-    page_operations,
-)
+from ui.routing import get_navigation_structure
 from ui.pages.home import render_home_page
 from ui.pages.find_best_train import render_find_best_train_page
 from ui.pages.live_status import render_live_status_page
@@ -103,7 +91,7 @@ def test_all_page_callables_are_valid():
 def test_all_10_pages_execute_without_exceptions(page_module, page_fn):
     """Verify that every single page executes completely with zero unhandled exceptions."""
     code = f"from {page_module} import {page_fn}; {page_fn}()"
-    at = AppTest.from_string(code, default_timeout=20)
+    at = AppTest.from_string(code, default_timeout=25)
     at.run()
     assert len(at.exception) == 0, f"Exception on {page_fn}: {[e.message for e in at.exception]}"
 

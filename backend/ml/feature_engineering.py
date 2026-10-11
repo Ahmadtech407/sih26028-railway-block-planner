@@ -9,7 +9,7 @@ Provides unified, robust feature extraction and imputation for:
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Tuple
 import pandas as pd
 import numpy as np
 

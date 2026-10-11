@@ -17,7 +17,7 @@ Units:
 
 from datetime import datetime, timezone
 import math
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 import uuid
 
 from backend import database as db

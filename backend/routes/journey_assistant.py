@@ -18,7 +18,6 @@ from pydantic import BaseModel, Field
 from backend.services.journey_assistant_service import (
     search_journey_assistant,
     parse_journey_intent,
-    get_active_train_provider,
 )
 from backend.services.station_network import STATION_REGISTRY
 
