@@ -217,7 +217,7 @@ def render_find_best_train_page() -> None:
             </div>
         </div>
         <div>
-            <span class="rt-badge rt-badge-predicted">ML CONFIDENCE 94%</span>
+            <span class="rt-badge rt-badge-predicted">{f"ML CONFIDENCE {int(float(rec.get('confidence_score', rec.get('confidence', 0.92))) * 100)}%" if rec.get('confidence_score') or rec.get('confidence') else "ML ENSEMBLE v3.3"}</span>
         </div>
     </div>
 

@@ -69,7 +69,7 @@ def render_operations_page() -> None:
                     <div style="font-size:0.8rem; color:#A9BAD3;">Role Authorization: <b>{user_role}</b> · Safety Standard: RDSO Non-Vital Advisory DSS</div>
                 </div>
                 <div>
-                    {get_provenance_badge_html("VERIFIED LIVE", source="CP_SAT_DISCRETE_ENGINE")}
+                    {get_provenance_badge_html("AI ADVISORY", source="CP-SAT Optimizer", limitations="Non-Vital DSS Advisory; Requires Controller Authorization")}
                 </div>
             </div>
             <div style="font-size:0.82rem; color:#A9BAD3; line-height:1.5;">

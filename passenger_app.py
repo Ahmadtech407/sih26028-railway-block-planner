@@ -1128,14 +1128,44 @@ def generate_congestion_gauge_svg(level="LOW"):
     return clean_html(svg)
 
 
+_BACKEND_CIRCUIT_OPEN_UNTIL = 0.0
+
+
+def is_backend_available() -> bool:
+    """Check if the backend circuit is healthy and closed."""
+    global _BACKEND_CIRCUIT_OPEN_UNTIL
+    return time.time() > _BACKEND_CIRCUIT_OPEN_UNTIL
+
+
+def mark_backend_offline() -> None:
+    """Open circuit breaker for 15 seconds after network/connect failure."""
+    global _BACKEND_CIRCUIT_OPEN_UNTIL
+    _BACKEND_CIRCUIT_OPEN_UNTIL = time.time() + 15.0
+
+
+def mark_backend_healthy() -> None:
+    """Close circuit breaker upon successful response."""
+    global _BACKEND_CIRCUIT_OPEN_UNTIL
+    _BACKEND_CIRCUIT_OPEN_UNTIL = 0.0
+
+
 def get_json(path: str, params: Optional[Dict[str, Any]] = None) -> Any:
+    if not is_backend_available():
+        return None
     try:
-        response = requests.get(f"{BACKEND_URL}{path}", params=params, timeout=4)
+        response = requests.get(f"{BACKEND_URL}{path}", params=params, timeout=(0.4, 2.0))
         if response.status_code == 200:
+            mark_backend_healthy()
             return response.json()
+        elif response.status_code >= 500:
+            mark_backend_offline()
+    except (requests.ConnectionError, requests.Timeout):
+        mark_backend_offline()
+        return None
     except requests.RequestException:
         return None
     return None
+
 
 
 @st.cache_data(ttl=20, show_spinner=False)
@@ -1226,9 +1256,18 @@ def fetch_weather(station_or_section: str, coords: Optional[tuple[float, float, 
     lat = coords[0] if coords else 28.6431
     lon = coords[1] if coords else 77.2197
     st_name = coords[2] if coords else "New Delhi · NDLS"
+
+    # Map actual IMD station from registry rather than hardcoding Safdarjung for all sections
+    try:
+        from backend.services.weather_service import IMD_STATION_MAP
+        default_imd_info = IMD_STATION_MAP.get(station_or_section, ("IMD-42452", "IMD Regional Centre"))
+    except Exception:
+        default_imd_info = ("IMD-42452", "IMD Regional Centre")
+    imd_id_resolved = default_imd_info[0]
+
     try:
         url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,visibility&forecast_days=1&timezone=auto"
-        r = requests.get(url, timeout=3.5)
+        r = requests.get(url, timeout=(0.8, 2.0))
         if r.status_code == 200:
             p = r.json().get("current", {})
             temp = float(p.get("temperature_2m", 26.0))
@@ -1259,13 +1298,13 @@ def fetch_weather(station_or_section: str, coords: Optional[tuple[float, float, 
                 "station_name": st_name,
                 "imd_color_code": "GREEN",
                 "imd_alert_level": "NO_WARNING",
-                "imd_station_id": "IMD-42182",
+                "imd_station_id": imd_id_resolved,
                 "imd_advisory": "IMD GREEN: Favorable meteorological conditions for railway operations.",
             }
     except Exception:
         pass
 
-    # 4. Regional calibrated fallback
+    # 4. Regional calibrated offline baseline fallback (Truthfully labeled as offline model estimate)
     regional_temp = 23.5 if lat > 31.0 else (29.5 if lat > 27.5 else 26.5)
     regional_aqi = 55 if lat > 31.0 else (95 if lat > 27.5 else 78)
     return {
@@ -1280,16 +1319,17 @@ def fetch_weather(station_or_section: str, coords: Optional[tuple[float, float, 
         "weather_icon": "☀️",
         "weather_risk": "LOW",
         "weather_score": 12,
-        "weather_reason": "Optimal meteorological conditions for railway traffic.",
+        "weather_reason": "Live meteorological sensor offline; seasonal climate baseline parameters active.",
         "weather_source": "CALIBRATED_CLIMATE_MODEL",
+        "is_live": False,
         "air_quality_index": regional_aqi,
         "air_quality_label": "Moderate" if regional_aqi > 50 else "Good",
         "observed_at": datetime.now().isoformat(),
         "station_name": st_name,
         "imd_color_code": "GREEN",
-        "imd_alert_level": "NO_WARNING",
-        "imd_station_id": "IMD-42182",
-        "imd_advisory": "IMD GREEN: Favorable meteorological conditions for railway traffic.",
+        "imd_alert_level": "OFFLINE_REFERENCE",
+        "imd_station_id": imd_id_resolved,
+        "imd_advisory": "Live sensor feed offline. Displaying seasonal climate model baseline reference.",
     }
 
 
@@ -1297,48 +1337,44 @@ def fetch_ticket(pnr_or_payload: str) -> Dict[str, Any]:
     """Verify a ticket payload or 10-digit PNR with the backend API or fallback service."""
     clean_pnr = pnr_or_payload.strip()
 
-    # 1. Try POST /api/pnr/verify on FastAPI backend (primary PNR validation flow)
-    try:
-        resp = requests.post(f"{BACKEND_URL}/api/pnr/verify", json={"pnr": clean_pnr}, timeout=4)
-        if resp.status_code == 200:
-            data = resp.json()
-            data["match_verified"] = True
-            return data
-        elif resp.status_code == 404:
-            err_msg = resp.json().get("message") or "PNR not found. Please check the PNR and try again."
-            return {"status": "NOT_FOUND", "match_verified": False, "success": False, "message": err_msg}
-    except Exception:
-        pass
+    # If backend is healthy, attempt network endpoints with fast connection timeout
+    if is_backend_available():
+        # 1. Try POST /api/pnr/verify on FastAPI backend
+        try:
+            resp = requests.post(f"{BACKEND_URL}/api/pnr/verify", json={"pnr": clean_pnr}, timeout=(0.4, 2.0))
+            if resp.status_code == 200:
+                data = resp.json()
+                data["match_verified"] = True
+                return data
+            elif resp.status_code == 404:
+                err_msg = resp.json().get("message") or "PNR not found. Please check the PNR and try again."
+                return {"status": "NOT_FOUND", "match_verified": False, "success": False, "message": err_msg}
+        except (requests.ConnectionError, requests.Timeout):
+            mark_backend_offline()
+        except Exception:
+            pass
 
-    # 2. Try POST /api/tickets/verify for QR/barcode payload compatibility
-    try:
-        resp = requests.post(f"{BACKEND_URL}/api/tickets/verify", json={"payload": clean_pnr}, timeout=4)
-        if resp.status_code == 200:
-            return resp.json()
-        elif resp.status_code == 404:
-            err_msg = resp.json().get("message") or "PNR not found. Please check the PNR and try again."
-            return {"status": "NOT_FOUND", "match_verified": False, "success": False, "message": err_msg}
-    except Exception:
-        pass
+        # 2. Try POST /api/tickets/verify for QR/barcode payload compatibility if still connected
+        if is_backend_available():
+            try:
+                resp = requests.post(f"{BACKEND_URL}/api/tickets/verify", json={"payload": clean_pnr}, timeout=(0.4, 2.0))
+                if resp.status_code == 200:
+                    return resp.json()
+                elif resp.status_code == 404:
+                    err_msg = resp.json().get("message") or "PNR not found. Please check the PNR and try again."
+                    return {"status": "NOT_FOUND", "match_verified": False, "success": False, "message": err_msg}
+            except (requests.ConnectionError, requests.Timeout):
+                mark_backend_offline()
+            except Exception:
+                pass
 
-    # 3. Try GET endpoint
-    try:
-        sanitized = clean_pnr.replace(" ", "")
-        resp = requests.get(f"{BACKEND_URL}/api/pnr/{sanitized}", timeout=4)
-        if resp.status_code == 200:
-            return resp.json()
-        elif resp.status_code == 404:
-            err_msg = resp.json().get("message") or "PNR not found. Please check the PNR and try again."
-            return {"status": "NOT_FOUND", "match_verified": False, "success": False, "message": err_msg}
-    except Exception:
-        pass
-
-    # 4. Direct service fallback (strictly checks DB and KNOWN_TICKETS; never synthesizes fake data)
+    # 3. Direct service fallback (strictly checks DB and KNOWN_TICKETS; never synthesizes fake data)
     try:
         from backend.services.ticket_service import verify_ticket
         return verify_ticket(clean_pnr)
     except Exception as e:
         return {"status": "ERROR", "match_verified": False, "success": False, "message": str(e)}
+
 
 
 def decode_qr_image(file_bytes: bytes) -> Optional[str]:

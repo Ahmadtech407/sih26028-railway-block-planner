@@ -60,7 +60,7 @@ def render_live_status_page() -> None:
                 "speed_kmph": 112.0,
                 "delay_minutes": 0,
                 "destination_eta_min": 45,
-                "source": "GOVT_CRIS_NTES",
+                "source": "TIMETABLE_REFERENCE",
                 "platform_number": 3,
                 "current_station": "Kanpur Central",
                 "next_station": "Prayagraj Jn",
@@ -73,7 +73,7 @@ def render_live_status_page() -> None:
                 "speed_kmph": 105.0,
                 "delay_minutes": 5,
                 "destination_eta_min": 78,
-                "source": "GOVT_CRIS_NTES",
+                "source": "TIMETABLE_REFERENCE",
                 "platform_number": 1,
                 "current_station": "Kanpur Central",
                 "next_station": "Prayagraj Jn",
@@ -86,7 +86,7 @@ def render_live_status_page() -> None:
                 "speed_kmph": 92.0,
                 "delay_minutes": 15,
                 "destination_eta_min": 110,
-                "source": "GOVT_CRIS_NTES",
+                "source": "TIMETABLE_REFERENCE",
                 "platform_number": 2,
                 "current_station": "Fatehpur",
                 "next_station": "Prayagraj Jn",
@@ -138,8 +138,15 @@ def render_live_status_page() -> None:
     curr_stn_label = display_current_station(train, active_section)
     next_stn_label = train.get("next_station", "Kanpur Central")
 
-    prov_status = train.get("source", "SIMULATED")
-    badge_label = "VERIFIED LIVE" if prov_status in ("LIVE_GPS", "GOVT_OF_INDIA_CRIS", "GOVT_CRIS_NTES") else ("PREDICTED" if prov_status == "KINEMATIC_DEAD_RECKONING" else "DEMO DATA")
+    prov_status = train.get("source") or train.get("data_source", "SIMULATED")
+    if prov_status == "LIVE_GPS":
+        badge_label = "VERIFIED LIVE"
+    elif prov_status in ("KINEMATIC_DEAD_RECKONING", "CALCULATED"):
+        badge_label = "PREDICTED"
+    elif prov_status in ("TIMETABLE_REFERENCE", "REFERENCE_DATA", "INDIAN_RAILWAYS_TIMETABLE", "REFERENCE_TIMETABLE"):
+        badge_label = "SCHEDULED"
+    else:
+        badge_label = "DEMO DATA"
 
     # 1. Real-time Telemetry Overview Bar
     telemetry_html = (
@@ -283,15 +290,18 @@ def render_live_status_page() -> None:
             )
         )
 
-        # Live train marker
+        # Train marker with transparent telemetry origin disclosure
+        has_real_gps = isinstance(train.get("gps_lat"), (int, float)) and isinstance(train.get("gps_lon"), (int, float))
+        pos_origin_text = "Live Locomotive GPS Fix" if has_real_gps else "Estimated from Timetable Chainage"
+
         fig.add_trace(
             MAP_TRACE(
                 lat=[t_lat],
                 lon=[t_lon],
                 mode="markers",
-                marker={"color": "#DC2626", "size": 18},
+                marker={"color": "#10B981" if has_real_gps else "#DC2626", "size": 18},
                 name="Train",
-                text=[f"<b>{train.get('name', 'Train')}</b><br>{speed:.0f} km/h"],
+                text=[f"<b>{html.escape(str(train.get('name', 'Train')))}</b><br>Speed: {speed:.0f} km/h<br><i>{pos_origin_text}</i>"],
                 hoverinfo="text",
                 showlegend=False,
             )
@@ -314,6 +324,11 @@ def render_live_status_page() -> None:
             },
         )
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+        if has_real_gps:
+            st.caption("🟢 **Radar Telemetry**: Authenticated live locomotive GPS transponder coordinates active.")
+        else:
+            st.caption("ℹ️ **Radar Telemetry**: Displaying section progress calculated via timetable chainage. Live GPS transponder active when locomotive telemetry stream is connected.")
 
         # Weather & Destination Alarm Controls
         render_destination_alarm(train, active_section, dest_eta)

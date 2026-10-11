@@ -113,25 +113,44 @@ def render_pnr_page() -> None:
     if ticket:
         bkg = ticket.get("booking", {})
         status_val = str(bkg.get("status", "CNF")).upper()
+        chart_st = str(bkg.get("chart_status") or ("CHART PREPARED" if bkg.get("coach") else "CHART NOT PREPARED")).upper()
+        is_demo = ticket.get("is_demo", False)
+        prov_badge = get_provenance_badge_html("REFERENCE DATA" if is_demo else "VERIFIED LIVE", source="IRCTC PRS Reference" if is_demo else "IRCTC PRS Gateway")
+
+        if status_val == "CNF" or "CONFIRM" in status_val:
+            border_col = "#10B981"
+            title_text = f"✓ {html.escape(status_val)} — Berth Confirmed & Allotted"
+            pill_html = '<span class="rt-cnf-pill rt-cnf-high" style="font-size: 0.85rem; padding: 4px 12px;">✓ 100% CONFIRMED</span>'
+        elif status_val.startswith("RAC"):
+            border_col = "#F59E0B"
+            title_text = f"⚡ {html.escape(status_val)} — Reservation Against Cancellation"
+            pill_html = '<span class="rt-cnf-pill rt-cnf-med" style="font-size: 0.85rem; padding: 4px 12px;">RAC SEAT ASSIGNED</span>'
+        elif status_val.startswith("WL"):
+            border_col = "#EF4444"
+            title_text = f"⏳ {html.escape(status_val)} — Waiting List Position"
+            pill_html = f'<span class="rt-cnf-pill rt-cnf-low" style="font-size: 0.85rem; padding: 4px 12px;">{html.escape(status_val)}</span>'
+        else:
+            border_col = "#38BDF8"
+            title_text = f"ℹ️ {html.escape(status_val)}"
+            pill_html = f'<span class="rt-cnf-pill rt-cnf-med" style="font-size: 0.85rem; padding: 4px 12px;">{html.escape(status_val)}</span>'
 
         cnf_status_html = (
-            f'<div class="rt-card" style="margin-bottom: 0.85rem; border-left: 4px solid #10B981;">'
+            f'<div class="rt-card" style="margin-bottom: 0.85rem; border-left: 4px solid {border_col};">'
             f'  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">'
             f'    <div>'
-            f'      <div style="font-size: 0.75rem; font-weight: 700; color: #94A3B8; text-transform: uppercase;">'
-            f'        ConfirmTkt Confirmation Certainty'
+            f'      <div style="display: flex; align-items: center; gap: 8px;">'
+            f'        <span style="font-size: 0.75rem; font-weight: 700; color: #94A3B8; text-transform: uppercase;">IRCTC Booking Status</span>'
+            f'        {prov_badge}'
             f'      </div>'
-            f'      <div style="font-size: 1.15rem; font-weight: 800; color: #10B981; margin-top: 2px;">'
-            f'        ✓ {html.escape(status_val)} — Berth Confirmed & Allotted'
+            f'      <div style="font-size: 1.15rem; font-weight: 800; color: {border_col}; margin-top: 4px;">'
+            f'        {title_text}'
             f'      </div>'
             f'      <div style="font-size: 0.75rem; color: #94A3B8; margin-top: 2px;">'
-            f'        Chart Status: <b style="color: #38BDF8;">Chart Prepared</b> · High Confidence'
+            f'        Chart Status: <b style="color: #38BDF8;">{html.escape(chart_st)}</b>'
             f'      </div>'
             f'    </div>'
             f'    <div>'
-            f'      <span class="rt-cnf-pill rt-cnf-high" style="font-size: 0.85rem; padding: 4px 12px;">'
-            f'        ✓ 100% CONFIRMED'
-            f'      </span>'
+            f'      {pill_html}'
             f'    </div>'
             f'  </div>'
             f'</div>'
